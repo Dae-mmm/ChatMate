@@ -5,12 +5,13 @@ import { msg, langOf, AppError, sendError } from '../lib/messages.js';
 //           "llm_move" (il giocatore umano inserisce la mossa detta dall'LLM, modalità copia-incolla)
 // L'header Authorization (facoltativo) fa riconoscere il proprietario della partita su qualsiasi dispositivo.
 import { getGame, updateGame, newToken } from '../lib/store.js';
-import { publicView, seatOf, llmColorOf, extractMove, evaluate } from '../lib/view.js';
+import { publicView, seatOf, llmColorOf, isDuel, extractMove, evaluate } from '../lib/view.js';
 import { act, waitForChange, UserError } from '../lib/actions.js';
 import { getUser, readBody } from '../lib/auth.js';
 
 // Colore del richiedente: dal token del posto, oppure dall'account se è il proprietario di una partita contro l'LLM.
 function colorFor(row, token, user) {
+  if (isDuel(row)) return null; // nei duelli nessuno muove a mano
   const seat = seatOf(row, token);
   if (seat) return seat;
   const llm = llmColorOf(row);

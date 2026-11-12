@@ -308,7 +308,7 @@ async function initAccount() {
 
 // Titolo e sottotitolo di una partita nelle liste
 const statusText = (s) => (s === '1-0' ? t('game.whiteWins') : s === '0-1' ? t('game.blackWins') : s === '1/2-1/2' ? t('game.draw') : s === 'ongoing' ? t('status.ongoing') : '');
-const gameTitle = (g) => (g.vsLlm ? t('list.vs', { name: g.opponent || 'LLM' }) : t('list.vsFriend'));
+const gameTitle = (g) => (g.duel ? g.opponent : g.vsLlm ? t('list.vs', { name: g.opponent || 'LLM' }) : t('list.vsFriend'));
 const gameSub = (g) => [t('list.moves', { n: g.moves }), statusText(g.status)].filter(Boolean).join(' · ');
 
 function gameItem(id, title, sub) {
@@ -430,11 +430,23 @@ async function initLobby() {
   let picker = null;
   const canTwitch = acc && (acc.role === 'streamer' || acc.role === 'admin');
   $('optTwitch').hidden = !canTwitch;
+  const canDuel = acc?.role === 'admin';
+  $('optDuel').hidden = !canDuel;
+  let duelW = null, duelB = null;
   const cycle = canTwitch ? initCycle('tw') : null;
   const updateLlmUi = async () => {
     const opp = segValue('opponent');
-    const vsLlm = opp === 'llm', twitch = opp === 'twitch';
+    const vsLlm = opp === 'llm', twitch = opp === 'twitch', duel = opp === 'duel';
     $('twitchOptions').hidden = !twitch;
+    $('duelOptions').hidden = !duel;
+    $('nameField').hidden = $('colorField').hidden = duel;
+    if (duel) {
+      $('llmOptions').hidden = true;
+      if (acc?.hasKey && !duelW) { duelW = await modelPicker($('duelWhite'), acc.defaultModel); duelB = await modelPicker($('duelBlack'), acc.defaultModel); }
+      $('duelWhite').parentElement.hidden = $('duelBlack').parentElement.hidden = !acc?.hasKey;
+      $('duelHint').innerHTML = acc?.hasKey ? t('duel.hint') : t('duel.hintNoKey');
+      return;
+    }
     $('colorLabel').textContent = twitch ? t('lobby.chatColor') : t('lobby.yourColor');
     $('modelLabel').textContent = twitch ? t('lobby.firstModel') : t('lobby.model');
     if (twitch) {
@@ -470,6 +482,12 @@ async function initLobby() {
     try {
       const name = $('name').value.trim(); store.setName(name);
       const opponent = segValue('opponent');
+      if (opponent === 'duel') {
+        const r = await api('/api/games', { method: 'POST', body: JSON.stringify({ opponent, modelWhite: duelW?.value(), modelBlack: duelB?.value() }) });
+        store.set(r.id, { opponent: 'duel', created: Date.now() });
+        location.href = `/?g=${r.id}`;
+        return;
+      }
       if (opponent === 'twitch') {
         const r = await api('/api/games', { method: 'POST', body: JSON.stringify({
           opponent, color: segValue('color'), model: picker ? picker.value() : null,
@@ -579,6 +597,8 @@ function render() {
     status = t('game.over', { result: statusText(v.result), reason: t(`reason.${v.reason}`) });
   } else if (v.you && oppSide && !oppSide.joined) {
     status = t('game.waitFriend');
+  } else if (v.llm?.duel) {
+    status = (v.llm.error ? t('game.turnOf', { name: escapeHtml(who(v.turn)) }) : t('game.thinking', { name: escapeHtml(who(v.turn)) })) + (v.check ? t('game.check') : '');
   } else if (v.mode === 'twitch' && v.you && v.turn === v.you) {
     status = t('game.chatTurn') + (v.check ? t('game.check') : '');
   } else if (v.you && v.turn === v.you) {
@@ -626,9 +646,12 @@ function render() {
     $('llmState').classList.toggle('busy', !!L.thinking);
     $('llmErrBox').hidden = !(L.error && L.turn && !v.over);
     $('llmErrText').textContent = L.error ? llmErrorText(L.error) + (player ? t('llmerr.suffix') : '') : '';
-    $('llmRetry').hidden = !player;
+    $('llmRetry').hidden = !(player || L.canRetry);
     // ragionamento dell'ultima mossa, separato dalla risposta (solo modelli che lo forniscono)
-    const lastLlmMove = lastMoveOf(v, L.color);
+    // nei duelli il ragionamento è di chi ha appena mosso: si indica anche il modello
+    const lastLlmMove = L.duel && v.moves.length
+      ? `${(v.moves.length % 2 ? v.white : v.black).name} · ${v.moves.at(-1)}`
+      : lastMoveOf(v, L.color);
     $('llmReasonBox').hidden = !L.reasoning;
     if (!L.reasoning) $('reasonAsk').hidden = true;
     $('llmReasonMove').textContent = L.reasoning && lastLlmMove ? `· ${lastLlmMove}` : '';
@@ -691,7 +714,8 @@ function setView(v) {
 // In modalità automatica, quando tocca all'LLM, chiede al server di farlo giocare.
 async function maybeKickLlm(force = false) {
   const v = S.view, L = v?.llm;
-  if (!L || L.mode !== 'auto' || !L.turn || v.over || !v.you || v.you === L.color) return;
+  if (!L || L.mode !== 'auto' || !L.turn || v.over) return;
+  if (!L.duel && (!v.you || v.you === L.color)) return;
   if (!force && (L.thinking || L.error)) return;
   if (S.llmKick) return;
   S.llmKick = true;
@@ -818,7 +842,7 @@ async function initGame(id) {
   $('llmRetry').onclick = () => maybeKickLlm(true);
   // Prima di sbirciare il ragionamento dell'LLM si chiede conferma (una volta per partita)
   $('llmReasonBox').querySelector('summary').onclick = (e) => {
-    if ($('llmReasonBox').open || store.get(S.id)?.peek) return;
+    if ($('llmReasonBox').open || store.get(S.id)?.peek || S.view?.llm?.duel) return;
     e.preventDefault();
     $('reasonAsk').hidden = false;
   };

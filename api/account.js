@@ -8,7 +8,7 @@ import { msg, langOf, AppError, sendError } from '../lib/messages.js';
 import { getUser, encrypt, readBody } from '../lib/auth.js';
 import { getProfile, setProfile, listGames } from '../lib/store.js';
 import { checkKey } from '../lib/openrouter.js';
-import { evaluate, llmColorOf } from '../lib/view.js';
+import { evaluate, llmColorOf, isDuel } from '../lib/view.js';
 
 const profileView = (user, p) => ({
   email: user.email,
@@ -27,6 +27,7 @@ function gameSummary(row) {
     if (g.over) status = g.result;
   } catch { status = 'unknown'; }
   const llm = llmColorOf(row);
+  if (isDuel(row)) return { id: row.id, created: row.created_at, duel: true, opponent: `${row.white_name || 'LLM'} vs ${row.black_name || 'LLM'}`, vsLlm: true, model: row.llm_model, color: null, moves, status };
   return {
     id: row.id,
     created: row.created_at,

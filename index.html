@@ -137,7 +137,7 @@
   <main id="lobby" class="narrow" hidden>
     <section class="card">
       <h1 data-i18n="lobby.title">New game</h1>
-      <label class="field"><span data-i18n="lobby.yourName">Your name</span>
+      <label class="field" id="nameField"><span data-i18n="lobby.yourName">Your name</span>
         <input id="name" maxlength="30" data-i18n-ph="lobby.namePh" placeholder="e.g. Alex" autocomplete="nickname">
       </label>
 
@@ -146,7 +146,14 @@
           <button data-v="llm" class="on" data-i18n="lobby.vsLlm">An LLM</button>
           <button data-v="human" data-i18n="lobby.vsFriend">A friend</button>
           <button data-v="twitch" id="optTwitch" hidden data-i18n="lobby.vsTwitch">Twitch chat vs LLM</button>
+          <button data-v="duel" id="optDuel" hidden data-i18n="lobby.vsDuel">LLM vs LLM</button>
         </div>
+      </div>
+
+      <div id="duelOptions" hidden>
+        <div class="field"><span data-i18n="duel.white">White model</span><div class="modelPick" id="duelWhite"></div></div>
+        <div class="field"><span data-i18n="duel.black">Black model</span><div class="modelPick" id="duelBlack"></div></div>
+        <p class="hint" id="duelHint"></p>
       </div>
 
       <div id="llmOptions">
@@ -190,7 +197,7 @@
         </div>
       </div>
 
-      <div class="field"><span id="colorLabel" data-i18n="lobby.yourColor">Your colour</span>
+      <div class="field" id="colorField"><span id="colorLabel" data-i18n="lobby.yourColor">Your colour</span>
         <div class="seg" id="color">
           <button data-v="w" data-i18n="common.white">White</button>
           <button data-v="random" class="on" data-i18n="common.random">Random</button>

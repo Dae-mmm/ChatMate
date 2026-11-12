@@ -15,6 +15,7 @@ export default async function handler(req, res) {
     const body = readBody(req);
     const user = await getUser(req);
     if (body.opponent === 'twitch') return await createTwitchGame(req, res, body, user);
+    if (body.opponent === 'duel') return await createDuel(req, res, body, user);
     const color = body.color === 'w' || body.color === 'b' ? body.color : Math.random() < 0.5 ? 'w' : 'b';
     const opponent = body.opponent === 'llm' ? 'llm' : 'human';
     const other = color === 'w' ? 'black' : 'white';
@@ -58,6 +59,26 @@ export default async function handler(req, res) {
     console.error(e);
     res.status(500).json({ error: msg(langOf(req), 'server'), code: 'server' });
   }
+}
+
+// LLM contro LLM: solo admin, con la chiave OpenRouter dell'admin; si guarda e basta.
+async function createDuel(req, res, body, user) {
+  if (!user) return res.status(401).json({ error: msg(langOf(req), 'login_required'), code: 'login_required' });
+  if ((await getRole(user.id)) !== 'admin') return res.status(403).json({ error: msg(langOf(req), 'admin_required'), code: 'admin_required' });
+  const p = await getProfile(user.id);
+  if (!p?.openrouter_key_enc) return res.status(400).json({ error: msg(langOf(req), 'duel_needs_key'), code: 'duel_needs_key' });
+  const pick = (m) => (typeof m === 'string' && MODEL_RE.test(m.trim()) ? m.trim().slice(0, 120) : null);
+  const white = pick(body.modelWhite), black = pick(body.modelBlack);
+  if (!white || !black) return res.status(400).json({ error: msg(langOf(req), 'duel_pick_models'), code: 'duel_pick_models' });
+  const short = (m) => m.split('/')[1].replace(/:free$/, '');
+  const id = newId();
+  await createGame({
+    id, owner_id: user.id,
+    llm_model: white, llm_model_b: black,
+    white_kind: 'llm', black_kind: 'llm',
+    white_name: short(white), black_name: short(black),
+  });
+  return res.status(200).json({ id });
 }
 
 // Partita Twitch: la chat di un canale vota le mosse contro l'LLM. Solo streamer e admin, con chiave OpenRouter.
