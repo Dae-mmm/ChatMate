@@ -491,11 +491,8 @@ async function initLobby() {
     } catch (e) { $('lobbyErr').textContent = e.message; $('create').disabled = false; }
   };
 
-  // Partite recenti: dall'account se collegato, altrimenti da questo browser
-  const local = Object.entries(store.all()).sort((a, b) => (b[1].created || 0) - (a[1].created || 0)).slice(0, 8);
-  const items = acc?.games?.length
-    ? acc.games.slice(0, 8).map((g) => gameItem(g.id, gameTitle(g), gameSub(g)))
-    : local.map(([id, g]) => gameItem(id, g.opponent === 'llm' ? t('list.vsLlm') : g.opponent === 'twitch' ? 'Twitch' : t('list.vsFriend'), g.color === 'w' ? t('common.white') : g.color === 'b' ? t('common.black') : ''));
+  // Partite recenti: solo per gli utenti registrati, prese dal loro account
+  const items = (acc?.games || []).slice(0, 8).map((g) => gameItem(g.id, gameTitle(g), gameSub(g)));
   if (items.length) { $('myGames').hidden = false; $('gameList').replaceChildren(...items); }
 }
 
