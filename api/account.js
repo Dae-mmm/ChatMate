@@ -27,7 +27,8 @@ function gameSummary(row) {
     if (g.over) status = g.result;
   } catch { status = 'unknown'; }
   const llm = llmColorOf(row);
-  if (isDuel(row)) return { id: row.id, created: row.created_at, duel: true, opponent: `${row.white_name || 'LLM'} vs ${row.black_name || 'LLM'}`, vsLlm: true, model: row.llm_model, color: null, moves, status };
+  const cost = Number(row.llm_cost_w || 0) + Number(row.llm_cost_b || 0);
+  if (isDuel(row)) return { id: row.id, created: row.created_at, duel: true, opponent: `${row.white_name || 'LLM'} vs ${row.black_name || 'LLM'}`, vsLlm: true, model: row.llm_model, color: null, moves, status, cost };
   return {
     id: row.id,
     created: row.created_at,
@@ -37,6 +38,7 @@ function gameSummary(row) {
     color: llm ? (llm === 'w' ? 'b' : 'w') : null,
     moves,
     status,
+    cost,
   };
 }
 

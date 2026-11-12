@@ -309,7 +309,9 @@ async function initAccount() {
 // Titolo e sottotitolo di una partita nelle liste
 const statusText = (s) => (s === '1-0' ? t('game.whiteWins') : s === '0-1' ? t('game.blackWins') : s === '1/2-1/2' ? t('game.draw') : s === 'ongoing' ? t('status.ongoing') : '');
 const gameTitle = (g) => (g.duel ? g.opponent : g.vsLlm ? t('list.vs', { name: g.opponent || 'LLM' }) : t('list.vsFriend'));
-const gameSub = (g) => [t('list.moves', { n: g.moves }), statusText(g.status)].filter(Boolean).join(' · ');
+// spesa reale: sotto il centesimo due cifre significative ($0.0034), sotto il dollaro tre decimali ($0.025), poi due
+const spend = (x) => (x < 0.01 ? `$${x.toPrecision(2)}` : x < 1 ? `$${x.toFixed(3)}` : `$${x.toFixed(2)}`);
+const gameSub = (g) => [t('list.moves', { n: g.moves }), statusText(g.status), g.cost > 0 ? t('list.spent', { cost: spend(g.cost) }) : ''].filter(Boolean).join(' · ');
 
 function gameItem(id, title, sub) {
   const li = document.createElement('li');
@@ -645,6 +647,14 @@ function render() {
     $('llmModel').textContent = L.model;
     $('llmState').textContent = v.over ? '' : L.thinking ? t('llm.thinking') : L.turn && !L.error ? t('llm.aboutToMove') : L.turn ? '' : v.mode === 'twitch' ? t('llm.waitingChat') : t('llm.waitingYou');
     $('llmState').classList.toggle('busy', !!L.thinking);
+    // spesa della partita (solo il proprietario la riceve)
+    const c = L.cost, total = c ? c.w + c.b : 0;
+    $('llmCost').hidden = !c;
+    if (c) {
+      $('llmCost').innerHTML = L.duel && total > 0
+        ? `${t('game.spent')}: ${escapeHtml(v.white.name)} <b>${spend(c.w)}</b> · ${escapeHtml(v.black.name)} <b>${spend(c.b)}</b> · ${t('game.total')} <b>${spend(total)}</b>`
+        : `${t('game.spent')}: <b>${total > 0 ? spend(total) : '$0'}</b>`;
+    }
     $('llmErrBox').hidden = !(L.error && L.turn && !v.over);
     $('llmErrText').textContent = L.error ? llmErrorText(L.error) + (player ? t('llmerr.suffix') : '') : '';
     $('llmRetry').hidden = !(player || L.canRetry);

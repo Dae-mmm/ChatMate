@@ -13,6 +13,7 @@ Le migration in `migrations/` vanno applicate **in ordine** (il nome inizia con 
 | `20261112160000_llm_reasoning.sql` | Ragionamento dell'LLM salvato a parte rispetto alla risposta (colonna `llm_last_reasoning`) |
 | `20261112170000_reasoning_setting.sql` | Spunta dell'account per far ragionare i modelli (colonna `llm_reasoning`, attiva di default) |
 | `20261112180000_llm_duel.sql` | Partite LLM contro LLM (solo admin): modello del Nero in `llm_model_b` |
+| `20261112190000_llm_cost.sql` | Spesa reale dei modelli per partita (`llm_cost_w`, `llm_cost_b`, da usage.cost di OpenRouter) |
 
 Ogni nuova modifica al database va aggiunta qui come nuovo file, mai modificando quelli esistenti.
 
