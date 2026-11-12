@@ -4,7 +4,7 @@ import { msg, langOf, AppError, sendError } from '../lib/messages.js';
 //   action: "join" | "move" | "resign" | "offer_draw" | "accept_draw" | "decline_draw"
 //           "llm_move" (il giocatore umano inserisce la mossa detta dall'LLM, modalità copia-incolla)
 // L'header Authorization (facoltativo) fa riconoscere il proprietario della partita su qualsiasi dispositivo.
-import { getGame, updateGame, newToken } from '../lib/store.js';
+import { getGame, updateGame, newToken, llmMoves } from '../lib/store.js';
 import { publicView, seatOf, llmColorOf, isDuel, extractMove, evaluate } from '../lib/view.js';
 import { act, waitForChange, UserError } from '../lib/actions.js';
 import { getUser, readBody } from '../lib/auth.js';
@@ -27,6 +27,15 @@ export default async function handler(req, res) {
       const { id, token, since, wait } = req.query;
       let row = await getGame(String(id || ''));
       if (!row) return res.status(404).json({ error: msg(langOf(req), 'not_found'), code: 'not_found' });
+      if (req.query.log) {
+        // Diario delle mosse dell'LLM: visibile come la partita; la spesa solo al proprietario
+        const owner = !!(user && row.owner_id === user.id);
+        const entries = (await llmMoves(row.id)).map((m) => ({
+          ply: m.ply, color: m.color, model: m.model, san: m.san, reply: m.reply, reasoning: m.reasoning,
+          attempts: m.attempts, at: m.created_at, ...(owner ? { cost: Number(m.cost || 0) } : {}),
+        }));
+        return res.status(200).json({ entries });
+      }
       if (since != null && +since === row.version && wait) row = await waitForChange(row.id, row.version, +wait);
       if (!row) return res.status(404).json({ error: msg(langOf(req), 'not_found_deleted'), code: 'not_found_deleted' });
       return res.status(200).json(publicView(row, token, user));

@@ -1,4 +1,4 @@
-import { sqName } from '/lib/chess.js';
+import { sqName, replay } from '/lib/chess.js';
 import { t, lang, setLang, LANGS, applyStatic, fmtDateTime } from '/i18n.js';
 
 const $ = (id) => document.getElementById(id);
@@ -517,7 +517,8 @@ async function initLobby() {
 }
 
 // ---------- partita ----------
-const S = { id: null, token: null, llmToken: null, liveKey: null, view: null, flipped: false, sel: null, drag: null, llmKick: false, promptFor: null };
+const S = { id: null, token: null, llmToken: null, liveKey: null, view: null, flipped: false, sel: null, drag: null, llmKick: false, promptFor: null,
+  review: null, log: null, logFor: -1 }; // review: indice della mossa che si sta ripassando
 
 function parsePlacement(fen) {
   const board = {};
@@ -543,8 +544,15 @@ function orientation() {
   return S.flipped ? (base === 'w' ? 'b' : 'w') : base;
 }
 
+// Posizione dopo la mossa "ply" (per il ripasso), con gli stessi campi della vista usati dalla scacchiera
+function reviewView(v, ply) {
+  const g = replay(v.moves.slice(0, ply + 1));
+  const h = g.history.at(-1);
+  return { ...v, fen: g.fen, turn: g.turn, check: g.check, legal: [], lastMove: h ? { from: sqName(h.from), to: sqName(h.to) } : null };
+}
+
 function renderBoard() {
-  const v = S.view; const el = $('board'); el.innerHTML = '';
+  const v = S.review != null ? reviewView(S.view, S.review) : S.view; const el = $('board'); el.innerHTML = '';
   const pos = parsePlacement(v.fen);
   const pov = orientation();
   const targets = S.sel ? v.legal.filter((m) => m.from === S.sel).map((m) => m.to) : [];
@@ -625,13 +633,17 @@ function render() {
     const li = document.createElement('li');
     for (const j of [i, i + 1]) {
       if (v.moves[j] == null) continue;
-      const s = document.createElement('span'); s.textContent = v.moves[j];
+      const s = document.createElement('span'); s.textContent = v.moves[j]; s.dataset.ply = j;
       if (j === v.moves.length - 1) s.classList.add('cur');
+      if (j === S.review) s.classList.add('rev');
+      if (S.log?.some((e) => e.ply === j)) s.classList.add('ai');
       li.append(s);
     }
     ol.append(li);
   }
-  ol.scrollTop = ol.scrollHeight;
+  if (S.review == null) ol.scrollTop = ol.scrollHeight;
+  $('movesHint').hidden = !v.moves.length;
+  renderReview();
   $('copyPgn').hidden = !v.moves.length;
 
   // invito
@@ -721,6 +733,59 @@ function toPGN(v) {
   return `${tags.map(([k, val]) => `[${k} "${esc(val)}"]`).join('\n')}\n\n${lines.join('\n')}\n`;
 }
 
+// ---------- ripasso delle mosse: posizione e note dell'LLM in quel momento ----------
+async function loadLog(force = false) {
+  const n = S.view?.moves.length ?? 0;
+  if (!force && S.logFor === n) return;
+  S.logFor = n;
+  try { S.log = (await api(`/api/game?id=${S.id}&log=1`)).entries || []; } catch { S.log = S.log || []; }
+}
+
+function openReview(ply) {
+  if (!S.view || ply < 0 || ply >= S.view.moves.length) return;
+  S.review = ply; S.sel = null;
+  render();
+  loadLog().then(render);
+}
+function closeReview() { S.review = null; render(); }
+
+// Il ragionamento si può leggere liberamente a partita finita, nei duelli o da spettatori; altrimenti si chiede conferma
+const peekFree = (v) => v.over || v.llm?.duel || !v.you || !!store.get(S.id)?.peek;
+
+function renderReview() {
+  const v = S.view, card = $('reviewCard');
+  card.hidden = S.review == null;
+  if (S.review == null) return;
+  const ply = S.review, san = v.moves[ply];
+  const num = `${Math.floor(ply / 2) + 1}.${ply % 2 ? '..' : ''}`;
+  const entry = S.log?.find((e) => e.ply === ply);
+  const side = ply % 2 ? v.black : v.white;
+  $('reviewTitle').textContent = `${num} ${san} · ${side.name || (ply % 2 ? t('common.black') : t('common.white'))}`;
+  $('reviewPrev').disabled = ply === 0;
+  $('reviewNext').disabled = ply >= v.moves.length - 1;
+  const body = $('reviewBody'); body.innerHTML = '';
+  if (!S.log) { body.innerHTML = `<p class="hint">${t('common.loading')}</p>`; return; }
+  if (!entry) { body.innerHTML = `<p class="hint">${side.kind === 'llm' ? t('review.noNotes') : t('review.human')}</p>`; return; }
+  const meta = document.createElement('p'); meta.className = 'reviewMeta';
+  meta.textContent = [entry.model, entry.attempts > 1 ? t('review.attempts', { n: entry.attempts }) : '', entry.cost != null && entry.cost > 0 ? spend(entry.cost) : '', fmtDateTime(entry.at)].filter(Boolean).join(' · ');
+  body.append(meta);
+  if (entry.reasoning) {
+    const h = document.createElement('h4'); h.textContent = t('game.reasoning'); body.append(h);
+    if (peekFree(v)) {
+      const d = document.createElement('div'); d.className = 'reasoning'; d.textContent = entry.reasoning; body.append(d);
+    } else {
+      const ask = document.createElement('div'); ask.className = 'reasonAsk';
+      ask.innerHTML = `<span>${t('game.peekAsk')}</span><span class="row"><button class="small" data-a="yes">${t('game.peekYes')}</button><button class="small" data-a="no">${t('game.peekNo')}</button></span>`;
+      ask.onclick = (e) => { const a = e.target.dataset.a; if (!a) return; if (a === 'yes') store.set(S.id, { peek: true }); else ask.remove(); renderReview(); };
+      body.append(ask);
+    }
+  }
+  if (entry.reply) {
+    const h = document.createElement('h4'); h.textContent = t('review.reply'); body.append(h);
+    const pre = document.createElement('pre'); pre.className = 'reply'; pre.textContent = entry.reply; body.append(pre);
+  }
+}
+
 async function send(action, extra = {}) {
   $('gameErr').textContent = '';
   try {
@@ -742,6 +807,19 @@ function setView(v) {
   if (S.sel && !v.legal.some((m) => m.from === S.sel)) S.sel = null;
   render();
   maybeKickLlm();
+  syncLog(v);
+}
+
+// Tiene aggiornato il diario dell'LLM (per i pallini sulle mosse e il ripasso). La riga dell'ultima mossa
+// viene scritta subito dopo la mossa stessa: se non c'è ancora, si riprova poco dopo.
+async function syncLog(v) {
+  if (!v.llm || S.logFor === v.moves.length) return;
+  await loadLog(); render();
+  const last = v.moves.length - 1, mover = last % 2 ? v.black : v.white;
+  if (last >= 0 && mover.kind === 'llm' && !S.log?.some((e) => e.ply === last)) {
+    await sleep(1500);
+    if (S.view?.moves.length === v.moves.length) { await loadLog(true); render(); }
+  }
 }
 
 // In modalità automatica, quando tocca all'LLM, chiede al server di farlo giocare.
@@ -795,7 +873,7 @@ function sqAt(x, y) { const el = document.elementFromPoint(x, y); return el?.clo
 function initBoardInput() {
   const board = $('board');
   board.addEventListener('pointerdown', (e) => {
-    const sq = e.target.closest('.sq')?.dataset.sq; if (!sq || !S.view) return;
+    const sq = e.target.closest('.sq')?.dataset.sq; if (!sq || !S.view || S.review != null) return;
     if (S.sel && S.sel !== sq && tryPlay(S.sel, sq)) return;
     if (S.view.legal.some((m) => m.from === sq)) {
       S.sel = sq;
@@ -865,6 +943,16 @@ async function initGame(id) {
   document.querySelectorAll('[data-copy]').forEach((b) => (b.onclick = () => copy($(b.dataset.copy).value)));
   $('copyPrompt').onclick = () => copy($('promptText').value);
   $('copyPgn').onclick = () => S.view && copy(toPGN(S.view));
+  $('moves').onclick = (e) => { const p = e.target.closest('[data-ply]')?.dataset.ply; if (p != null) openReview(+p); };
+  $('reviewPrev').onclick = () => openReview(S.review - 1);
+  $('reviewNext').onclick = () => openReview(S.review + 1);
+  $('reviewExit').onclick = closeReview;
+  addEventListener('keydown', (e) => {
+    if (S.review == null || /input|textarea|select/i.test(e.target.tagName)) return;
+    if (e.key === 'ArrowLeft') openReview(S.review - 1);
+    else if (e.key === 'ArrowRight') openReview(S.review + 1);
+    else if (e.key === 'Escape') closeReview();
+  });
   $('llmSelect').onchange = () => { if ($('llmSelect').value) $('llmAnswer').value = $('llmSelect').value; };
   $('llmAnswer').onkeydown = (e) => { if (e.key === 'Enter') $('sendAnswer').click(); };
   $('sendAnswer').onclick = async () => {

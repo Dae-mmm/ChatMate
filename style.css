@@ -130,6 +130,17 @@ select, textarea { font: inherit; color: var(--text); background: var(--panel2);
 .reasoning { white-space: pre-wrap; word-break: break-word; font-size: 13px; line-height: 1.5; color: var(--text); opacity: .85; max-height: 320px; overflow: auto; background: var(--panel2); padding: 10px 12px; border-radius: 8px; border-left: 3px solid var(--accent); margin: 6px 0 0; }
 .llmCost { font-size: 13px; color: var(--muted); margin-top: 4px; }
 .llmCost b { color: var(--text); font-weight: 600; }
+.moves span { cursor: pointer; border-radius: 4px; }
+.moves span:hover { background: var(--panel2); }
+.moves span.rev { outline: 2px solid var(--accent); outline-offset: 1px; }
+.moves span.ai::after { content: '•'; color: var(--accent); margin-left: 3px; font-size: 11px; vertical-align: super; }
+.reviewCard { border-color: var(--accent); }
+.reviewCard .cardHead { flex-wrap: wrap; }
+.reviewCard .cardHead h3 { flex: 1 1 100%; }
+.reviewCard h3 { text-transform: none; letter-spacing: 0; font-size: 15px; color: var(--text); }
+.reviewCard .row { display: flex; gap: 6px; }
+.reviewCard h4 { margin: 12px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.reviewMeta { font-size: 13px; color: var(--muted); margin-top: 6px; }
 .cardHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .cardHead h3 { margin: 0; }
 .reasonAsk { margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: var(--panel2); font-size: 13px; display: grid; gap: 8px; }

@@ -332,10 +332,19 @@
         </details>
       </div>
 
+      <!-- Ripasso di una mossa passata: posizione sulla scacchiera e note dell'LLM in quel momento -->
+      <div class="card reviewCard" id="reviewCard" hidden>
+        <div class="cardHead"><h3 id="reviewTitle"></h3>
+          <span class="row"><button id="reviewPrev" class="small" aria-label="◀">◀</button><button id="reviewNext" class="small" aria-label="▶">▶</button>
+          <button id="reviewExit" class="small primary" data-i18n="review.back">Back to the game</button></span></div>
+        <div id="reviewBody"></div>
+      </div>
+
       <div class="card">
         <div class="cardHead"><h3 data-i18n="game.moves">Moves</h3>
           <button id="copyPgn" class="small" hidden data-i18n="game.copyPgn">Copy PGN</button></div>
         <ol id="moves" class="moves"></ol>
+        <p class="hint" id="movesHint" hidden data-i18n="review.hint">Click a move to see the position and what the AI noticed at that moment.</p>
       </div>
 
       <div class="card actions" id="actions" hidden>
