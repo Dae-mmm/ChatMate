@@ -624,6 +624,11 @@ function render() {
     $('llmErrBox').hidden = !(L.error && L.turn && !v.over);
     $('llmErrText').textContent = L.error ? llmErrorText(L.error) + (player ? t('llmerr.suffix') : '') : '';
     $('llmRetry').hidden = !player;
+    // ragionamento dell'ultima mossa, separato dalla risposta (solo modelli che lo forniscono)
+    const lastLlmMove = lastMoveOf(v, L.color);
+    $('llmReasonBox').hidden = !L.reasoning;
+    $('llmReasonMove').textContent = L.reasoning && lastLlmMove ? `· ${lastLlmMove}` : '';
+    if ($('llmReason').dataset.src !== L.reasoning) { $('llmReason').dataset.src = L.reasoning || ''; $('llmReason').textContent = L.reasoning || ''; }
     $('llmReplyBox').hidden = !L.lastReply;
     $('llmReply').textContent = L.lastReply || '';
   }
@@ -648,6 +653,12 @@ function render() {
   $('liveCard').hidden = !(v.mode === 'twitch' && v.ownerTokens?.liveKey);
   if (!$('liveCard').hidden && !S.liveKey) startLivePanel(v);
   $('offerDraw').textContent = v.drawOffer === v.you ? t('game.drawProposed') : t('game.offerDraw');
+}
+
+// Ultima mossa giocata da un colore (il Bianco muove agli indici pari)
+function lastMoveOf(v, color) {
+  for (let i = v.moves.length - 1; i >= 0; i--) if ((i % 2 === 0) === (color === 'w')) return v.moves[i];
+  return null;
 }
 
 async function send(action, extra = {}) {

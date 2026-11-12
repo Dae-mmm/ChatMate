@@ -10,6 +10,7 @@ Le migration in `migrations/` vanno applicate **in ordine** (il nome inizia con 
 | `20261112130000_twitch_live.sql` | Modalità Twitch: canale e tempi del turno sulle partite, tabella `votes` (un voto per spettatore per turno), conteggio e spareggi |
 | `20261112140000_live_key.sql` | Chiave dell'overlay per streamer: l'indirizzo in OBS resta fisso e mostra l'ultima partita Twitch |
 | `20261112150000_auto_next.sql` | Ciclo automatico delle live: conto alla rovescia a fine partita, modello fisso / casuale / votato, modelli in gara |
+| `20261112160000_llm_reasoning.sql` | Ragionamento dell'LLM salvato a parte rispetto alla risposta (colonna `llm_last_reasoning`) |
 
 Ogni nuova modifica al database va aggiunta qui come nuovo file, mai modificando quelli esistenti.
 

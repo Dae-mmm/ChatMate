@@ -281,6 +281,10 @@
           <p id="llmErrText"></p>
           <button id="llmRetry" class="small primary" data-i18n="game.retry">Try again</button>
         </div>
+        <details id="llmReasonBox" class="reasonBox" hidden>
+          <summary><span data-i18n="game.reasoning">Reasoning</span> <span id="llmReasonMove" class="reasonMove"></span></summary>
+          <div id="llmReason" class="reasoning"></div>
+        </details>
         <details id="llmReplyBox" hidden>
           <summary data-i18n="game.lastReply">Model's last reply</summary>
           <pre id="llmReply" class="reply"></pre>
