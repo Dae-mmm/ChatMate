@@ -285,6 +285,11 @@
           <summary><span data-i18n="game.reasoning">Reasoning</span> <span id="llmReasonMove" class="reasonMove"></span></summary>
           <div id="llmReason" class="reasoning"></div>
         </details>
+        <div id="reasonAsk" class="reasonAsk" hidden>
+          <span data-i18n="game.peekAsk">Are you sure? It's kinda cheating to read somebody's mind!</span>
+          <span class="row"><button id="reasonYes" class="small" data-i18n="game.peekYes">Peek anyway</button>
+          <button id="reasonNo" class="small" data-i18n="game.peekNo">No, I'll play fair</button></span>
+        </div>
         <details id="llmReplyBox" hidden>
           <summary data-i18n="game.lastReply">Model's last reply</summary>
           <pre id="llmReply" class="reply"></pre>

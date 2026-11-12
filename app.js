@@ -627,6 +627,7 @@ function render() {
     // ragionamento dell'ultima mossa, separato dalla risposta (solo modelli che lo forniscono)
     const lastLlmMove = lastMoveOf(v, L.color);
     $('llmReasonBox').hidden = !L.reasoning;
+    if (!L.reasoning) $('reasonAsk').hidden = true;
     $('llmReasonMove').textContent = L.reasoning && lastLlmMove ? `· ${lastLlmMove}` : '';
     if ($('llmReason').dataset.src !== L.reasoning) { $('llmReason').dataset.src = L.reasoning || ''; $('llmReason').textContent = L.reasoning || ''; }
     $('llmReplyBox').hidden = !L.lastReply;
@@ -812,6 +813,14 @@ async function initGame(id) {
     $('sendAnswer').disabled = false;
   };
   $('llmRetry').onclick = () => maybeKickLlm(true);
+  // Prima di sbirciare il ragionamento dell'LLM si chiede conferma (una volta per partita)
+  $('llmReasonBox').querySelector('summary').onclick = (e) => {
+    if ($('llmReasonBox').open || store.get(S.id)?.peek) return;
+    e.preventDefault();
+    $('reasonAsk').hidden = false;
+  };
+  $('reasonYes').onclick = () => { store.set(S.id, { peek: true }); $('reasonAsk').hidden = true; $('llmReasonBox').open = true; };
+  $('reasonNo').onclick = () => { $('reasonAsk').hidden = true; };
   poll();
 }
 
