@@ -55,7 +55,9 @@ async function loop() {
 // Fa avanzare la live: apre/chiude i turni di voto e sveglia l'LLM quando tocca a lui.
 async function drive() {
   const v = S.live; if (!v) return;
-  const due = v.phase === 'idle' || v.phase === 'closing' || (v.graceEndsAt && now() >= v.graceEndsAt && v.phase !== 'llm' && v.phase !== 'over');
+  const due = v.phase === 'idle' || v.phase === 'closing'
+    || (v.graceEndsAt && now() >= v.graceEndsAt && ['voting', 'counting'].includes(v.phase))
+    || (v.phase === 'next' && (!v.next.at || now() >= v.next.graceEndsAt));
   if (due && !S.ticking) {
     S.ticking = true;
     try { await flushVotes(); setLive(await post({ action: 'tick' })); } finally { S.ticking = false; }
@@ -102,8 +104,15 @@ function connectChat(channel) {
 
 function onChat(rawTags, login, text) {
   const v = S.live;
-  if (!v || (v.phase !== 'voting' && v.phase !== 'counting')) return;
+  if (!v) return;
   const tags = Object.fromEntries((rawTags || '').split(';').map((kv) => kv.split('=')));
+  if (v.phase === 'next') {
+    if (v.next.mode !== 'vote' || !v.next.at || now() > v.next.graceEndsAt) return;
+    const n = text.trim();
+    if (v.next.options.some((o) => o.n === n)) S.queue.set(tags['user-id'] || login, n);
+    return;
+  }
+  if (v.phase !== 'voting' && v.phase !== 'counting') return;
   const move = normalizeVote(text, v.moves.map((m) => m.san));
   if (!move) return;
   S.queue.set(tags['user-id'] || login, move); // vale l'ultimo voto di ognuno
@@ -199,8 +208,13 @@ function render() {
   // top 5 (con posti vuoti se ci sono pochi voti) e tutte le altre mosse su 3 colonne
   const T = $('top'); T.innerHTML = '';
   const rest = $('rest'); rest.innerHTML = '';
-  rest.hidden = !voting; $('hist').hidden = voting;
-  if (voting) {
+  rest.hidden = !voting; $('hist').hidden = voting || v.phase === 'next';
+  $('how').innerHTML = v.phase === 'next' && v.next.mode === 'vote'
+    ? `Scrivi in chat <b>solo il numero</b> del modello, es. <code>1</code>`
+    : 'Scrivi in chat <b>solo la mossa</b> in notazione inglese, es. <code>Nf6</code> · <code>exd5</code> · <code>O-O</code>';
+  $('legend').hidden = v.phase === 'next';
+  if (v.phase === 'next') renderNext(v, T);
+  else if (voting) {
     top.forEach((m, i) => {
       const pct = v.totalVotes ? Math.round((m.votes / v.totalVotes) * 100) : 0;
       T.insertAdjacentHTML('beforeend', `<div class="row"><span class="chip" style="background:${COLORS[i]}"></span><span class="mv">${m.san}</span><div class="track"><div class="fill" style="width:${pct}%;background:${COLORS[i]}"></div></div><span class="pct">${pct}% <small>· ${m.votes}</small></span></div>`);
@@ -224,7 +238,8 @@ function render() {
     }
   }
   const full = Math.ceil(g.moves.length / 2);
-  $('votes').textContent = voting ? `${v.totalVotes} ${v.totalVotes === 1 ? 'voto' : 'voti'} · turno ${v.round}` : `mossa ${full}`;
+  $('votes').textContent = v.phase === 'next' && v.next.mode === 'vote' ? `${v.next.totalVotes} ${v.next.totalVotes === 1 ? 'voto' : 'voti'}`
+    : voting ? `${v.totalVotes} ${v.totalVotes === 1 ? 'voto' : 'voti'} · turno ${v.round}` : `mossa ${full}`;
 
   // fase, sottotitolo e banner sulla scacchiera
   let phase = PHASE_LABEL[v.phase] || '', sub = '';
@@ -236,6 +251,13 @@ function render() {
     sub = v.llm.error ? 'Lo streamer sta intervenendo.' : v.lastChosen ? `La chat ha giocato <b>${v.lastChosen.san}</b> con ${v.lastChosen.votes} ${v.lastChosen.votes === 1 ? 'voto' : 'voti'}.` : '';
   }
   if (v.phase === 'over') { phase = `${RESULT[g.result] || 'Partita finita'}`; sub = g.reasonIt ? `Per ${g.reasonIt}.` : ''; }
+  if (v.phase === 'next') {
+    const n = v.next, nextChat = pov === 'w' ? 'Nero' : 'Bianco';
+    const res = `${RESULT[g.result] || 'Partita finita'}${g.reasonIt ? ` (${g.reasonIt})` : ''}.`;
+    if (n.mode === 'vote') { phase = n.tieBreak ? 'Spareggio!' : 'Scegli il prossimo avversario!'; sub = `${res} Nella prossima la chat gioca col ${nextChat}.`; }
+    else if (n.mode === 'random') { phase = 'Prossima partita'; sub = `${res} Avversario estratto a caso · la chat gioca col ${nextChat}.`; }
+    else { phase = 'Prossima partita'; sub = `${res} Si rigioca contro <b>${n.current}</b> · la chat gioca col ${nextChat}.`; }
+  }
   $('phase').textContent = phase;
   $('sub').innerHTML = sub;
 
@@ -247,8 +269,27 @@ function render() {
     b.innerHTML = `La chat gioca ${v.lastChosen.san}<small>${v.lastChosen.votes} ${v.lastChosen.votes === 1 ? 'voto' : 'voti'}</small>`;
     b.hidden = false; clearTimeout(S.bannerT); S.bannerT = setTimeout(() => (b.hidden = true), 2600);
   }
-  if (v.phase === 'over') { const b = $('banner'); b.innerHTML = `${RESULT[g.result] || 'Fine'}<small>${g.reasonIt || ''}</small>`; b.hidden = false; }
+  if (v.phase === 'over' || v.phase === 'next') { const b = $('banner'); b.innerHTML = `${RESULT[g.result] || 'Fine'}<small>${g.reasonIt || ''}</small>`; b.hidden = false; }
   else if (v.phase !== 'llm') $('banner').hidden = true;
+}
+
+// Prossima partita: modelli votabili (con barre) oppure elenco dei modelli in gara
+function renderNext(v, T) {
+  const n = v.next;
+  if (n.mode === 'vote') {
+    n.options.forEach((o) => {
+      const i = +o.n - 1, col = COLORS[i % COLORS.length];
+      const pct = n.totalVotes ? Math.round((o.votes / n.totalVotes) * 100) : 0;
+      T.insertAdjacentHTML('beforeend', `<div class="row model"><span class="num" style="background:${col}">${o.n}</span><span class="mv"></span><div class="track"><div class="fill" style="width:${pct}%;background:${col}"></div></div><span class="pct">${pct}% <small>· ${o.votes}</small></span></div>`);
+      T.lastElementChild.querySelector('.mv').textContent = o.name;
+    });
+  } else {
+    const list = n.mode === 'random' ? n.pool : [n.current];
+    for (const name of list) {
+      T.insertAdjacentHTML('beforeend', '<div class="row model plain"><span class="mv"></span></div>');
+      T.lastElementChild.querySelector('.mv').textContent = name;
+    }
+  }
 }
 
 // Adatta la tabella delle altre mosse allo spazio: prima più colonne, poi testo più piccolo
@@ -276,14 +317,16 @@ function renderChatState() {
 function frame() {
   const v = S.live;
   const t = $('timer'), fill = $('barFill');
-  if (v && v.endsAt && (v.phase === 'voting' || v.phase === 'counting' || v.phase === 'closing')) {
-    const left = Math.max(0, v.endsAt - now());
+  const target = v && (v.phase === 'next' ? v.next.at : ['voting', 'counting', 'closing'].includes(v.phase) ? v.endsAt : null);
+  if (target) {
+    const left = Math.max(0, target - now());
+    const total = v.phase === 'next' ? (v.next.tieBreak ? v.voteSeconds : v.next.seconds) : v.voteSeconds;
     const s = Math.ceil(left / 1000);
     t.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
     t.classList.toggle('low', s <= 5);
     const counting = left <= 0;
     fill.classList.toggle('pulse', counting);
-    fill.style.width = counting ? '100%' : `${(left / (v.voteSeconds * 1000)) * 100}%`;
+    fill.style.width = counting ? '100%' : `${Math.min(100, (left / (total * 1000)) * 100)}%`;
   } else {
     t.textContent = ''; fill.classList.remove('pulse'); fill.style.width = '0';
   }

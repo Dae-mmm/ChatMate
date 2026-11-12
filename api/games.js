@@ -2,7 +2,7 @@
 // Crea una partita. Se l'utente è collegato, la partita è sua; contro un LLM, con una chiave OpenRouter
 // salvata e un modello scelto, l'LLM gioca da solo, altrimenti si usa la modalità copia-incolla.
 import { createGame, newId, newToken, getProfile, setProfile, getRole } from '../lib/store.js';
-import { LIMITS, clamp, cleanChannel, validChannel } from '../lib/live.js';
+import { LIMITS, clamp, cleanChannel, validChannel, createLiveGame, cleanPool, MODEL_MODES } from '../lib/live.js';
 import { baseUrl } from '../lib/actions.js';
 import { getUser, readBody } from '../lib/auth.js';
 
@@ -76,24 +76,13 @@ async function createTwitchGame(req, res, body, user) {
   if (!liveKey) { liveKey = newToken(); await setProfile(user.id, { live_key: liveKey }); }
 
   const chat = body.color === 'w' || body.color === 'b' ? body.color : Math.random() < 0.5 ? 'w' : 'b';
-  const chatSide = chat === 'w' ? 'white' : 'black', llmSide = chat === 'w' ? 'black' : 'white';
-  const token = newToken(), llmToken = newToken();
-  const id = newId();
-  await createGame({
-    id,
-    owner_id: user.id,
-    llm_model: model,
-    mode: 'twitch',
-    live_key: liveKey,
-    twitch_channel: channel,
-    vote_seconds: clamp(body.voteSeconds, LIMITS.vote),
-    grace_seconds: clamp(body.graceSeconds, LIMITS.grace),
-    [`${chatSide}_kind`]: 'human',
-    [`${chatSide}_token`]: token,
-    [`${chatSide}_name`]: `Chat di ${channel}`,
-    [`${llmSide}_kind`]: 'llm',
-    [`${llmSide}_token`]: llmToken,
-    [`${llmSide}_name`]: model.split('/')[1].replace(/:free$/, ''),
+  const modelMode = MODEL_MODES.includes(body.modelMode) ? body.modelMode : 'fixed';
+  const modelPool = cleanPool(body.modelPool);
+  if (modelMode !== 'fixed' && modelPool.length < 2) return res.status(400).json({ error: 'Per il modello casuale o votato servono almeno 2 modelli in gara.' });
+  const { id, token, llmToken } = await createLiveGame({
+    ownerId: user.id, liveKey, channel, model, chatColor: chat,
+    voteSeconds: clamp(body.voteSeconds, LIMITS.vote), graceSeconds: clamp(body.graceSeconds, LIMITS.grace),
+    autoNext: clamp(body.autoNext, LIMITS.next), modelMode, modelPool,
   });
   const base = baseUrl(req);
   return res.status(200).json({ id, token, color: chat, llmToken, model, liveKey, overlayUrl: `${base}/overlay.html?key=${liveKey}` });

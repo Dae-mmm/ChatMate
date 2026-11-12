@@ -57,6 +57,7 @@ Riservata agli account **streamer** e **admin**, con una chiave OpenRouter colle
 - **Turno**: timer di voto (10-300 s, predefinito 30) e poi un cuscinetto (0-20 s, predefinito 4) per i voti in ritardo dovuti alla latenza dello stream.
 - **Chiusura del turno**: se non ci sono voti il timer riparte. Se in testa c'è una parità, si fa uno spareggio solo tra le mosse a pari merito. Altrimenti si gioca la mossa più votata e risponde l'LLM.
 - **Overlay**: `overlay.html?key=<chiave>` (con `&bg=transparent` per lo sfondo trasparente) va aggiunto in OBS come Browser Source 1920×1080. L'indirizzo è fisso per lo streamer e mostra sempre la sua ultima partita Twitch. L'overlay legge la chat in sola lettura (IRC anonimo, senza login) e manda i voti al sito, che li ricontrolla.
+- **Ciclo automatico**: a fine partita parte un conto alla rovescia (secondi regolabili, 0 = spento) e poi una nuova partita, con la chat che cambia colore. Il modello può essere sempre lo stesso, estratto a caso tra i modelli in gara (2-5, evitando di ripetere l'ultimo) o votato dalla chat scrivendo il numero. In parità c'è lo spareggio; se nessuno vota, il modello viene estratto a caso.
 - **Pannello dello streamer**: nella pagina della partita trovi il link dell'overlay, le impostazioni, un voto di prova per i test e "Nuova partita".
 
 ## Endpoint per LLM esterni

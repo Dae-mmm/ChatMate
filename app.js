@@ -177,6 +177,49 @@ async function modelPicker(container, initial) {
   return { value: () => (sel.value === '__custom' ? custom.value.trim() : sel.value) };
 }
 
+// Editor dei modelli in gara (max 5): selettore + "Aggiungi" + elenco con costo stimato
+async function poolEditor(container, initial = []) {
+  container.innerHTML = '';
+  const list = document.createElement('div'); list.className = 'poolList';
+  const pickBox = document.createElement('div'); pickBox.className = 'modelPick';
+  const add = document.createElement('button'); add.className = 'small'; add.type = 'button'; add.textContent = 'Aggiungi';
+  container.append(list, pickBox, add);
+  const picker = await modelPicker(pickBox, null);
+  const { groups } = await loadModels();
+  const info = Object.fromEntries(groups.flatMap((g) => g.models).map((m) => [m.id, m]));
+  let pool = [...initial];
+  const draw = () => {
+    list.innerHTML = '';
+    if (!pool.length) list.innerHTML = '<span class="hint">Nessun modello: aggiungine almeno 2.</span>';
+    pool.forEach((id, i) => {
+      const chip = document.createElement('span'); chip.className = 'poolChip';
+      const m = info[id];
+      chip.textContent = `${i + 1}. ${m ? m.name : id}${m?.cost ? ` · ${m.cost.perGame[1] === 0 ? 'gratis' : range(m.cost.perGame)}` : ''}`;
+      const x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.title = 'Togli';
+      x.onclick = () => { pool.splice(i, 1); draw(); };
+      chip.append(x); list.append(chip);
+    });
+    add.disabled = pool.length >= 5;
+  };
+  add.onclick = () => { const id = picker.value(); if (id && !pool.includes(id) && pool.length < 5) { pool.push(id); draw(); } };
+  draw();
+  return { value: () => [...pool] };
+}
+
+// Collega la scelta del modello (fisso / casuale / votato) all'editor dei modelli in gara
+function initCycle(prefix, mode = 'fixed', pool = []) {
+  const seg = $(`${prefix}ModelMode`);
+  seg.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.v === mode));
+  let editor = null;
+  const update = async (m) => {
+    $(`${prefix}PoolField`).hidden = m === 'fixed';
+    if (m !== 'fixed' && !editor) editor = await poolEditor($(`${prefix}Pool`), pool);
+  };
+  initSeg(`${prefix}ModelMode`, update);
+  update(mode);
+  return { mode: () => segValue(`${prefix}ModelMode`), pool: () => (editor ? editor.value() : pool) };
+}
+
 // ---------- pagina accesso ----------
 function initAuth(recovery = false) {
   $('auth').hidden = false;
@@ -376,11 +419,13 @@ async function initLobby() {
   let picker = null;
   const canTwitch = acc && (acc.role === 'streamer' || acc.role === 'admin');
   $('optTwitch').hidden = !canTwitch;
+  const cycle = canTwitch ? initCycle('tw') : null;
   const updateLlmUi = async () => {
     const opp = segValue('opponent');
     const vsLlm = opp === 'llm', twitch = opp === 'twitch';
     $('twitchOptions').hidden = !twitch;
-    $('colorLabel').textContent = twitch ? 'Colore della chat' : 'Il tuo colore';
+    $('colorLabel').textContent = twitch ? 'Colore della chat nella prima partita' : 'Il tuo colore';
+    $('modelLabel').textContent = twitch ? 'Modello della prima partita' : 'Modello';
     if (twitch) {
       $('llmOptions').hidden = false;
       $('modeField').hidden = true;
@@ -418,6 +463,7 @@ async function initLobby() {
         const r = await api('/api/games', { method: 'POST', body: JSON.stringify({
           opponent, color: segValue('color'), model: picker ? picker.value() : null,
           channel: $('twChannel').value, voteSeconds: $('twVote').value, graceSeconds: $('twGrace').value,
+          autoNext: $('twNext').value, modelMode: cycle.mode(), modelPool: cycle.pool(),
         }) });
         store.set(r.id, { token: r.token, llmToken: r.llmToken, color: r.color, opponent: 'twitch', created: Date.now() });
         location.href = `/?g=${r.id}`;
@@ -755,7 +801,7 @@ async function initGame(id) {
 }
 
 // ---------- pannello live Twitch (solo lo streamer proprietario) ----------
-const LIVE_PHASE = { voting: 'Votazione', counting: 'Conteggio voti (cuscinetto)', closing: 'Conteggio voti', idle: 'Apertura turno', llm: 'Tocca all\'LLM', over: 'Partita finita' };
+const LIVE_PHASE = { next: 'Prossima partita in arrivo', voting: 'Votazione', counting: 'Conteggio voti (cuscinetto)', closing: 'Conteggio voti', idle: 'Apertura turno', llm: 'Tocca all\'LLM', over: 'Partita finita' };
 
 function startLivePanel(v) {
   S.liveKey = v.ownerTokens.liveKey;
@@ -764,10 +810,13 @@ function startLivePanel(v) {
   $('overlayTransparent').onchange = () => { $('overlayUrl').value = url($('overlayTransparent').checked); };
   $('liveChannel').textContent = `#${v.twitch.channel}`;
   $('setChannel').value = v.twitch.channel; $('setVote').value = v.twitch.voteSeconds; $('setGrace').value = v.twitch.graceSeconds;
+  $('setNext').value = v.twitch.autoNext || 0;
+  const cycle = initCycle('set', v.twitch.modelMode || 'fixed', v.twitch.modelPool || []);
   const live = (body) => api('/api/live', { method: 'POST', body: JSON.stringify({ key: S.liveKey, ...body }) });
   $('saveLive').onclick = async () => {
     try {
-      const r = await live({ action: 'settings', channel: $('setChannel').value, voteSeconds: $('setVote').value, graceSeconds: $('setGrace').value });
+      const r = await live({ action: 'settings', channel: $('setChannel').value, voteSeconds: $('setVote').value, graceSeconds: $('setGrace').value,
+        autoNext: $('setNext').value, modelMode: cycle.mode(), modelPool: cycle.pool() });
       $('liveChannel').textContent = `#${r.channel}`; toast('Impostazioni salvate');
     } catch (e) { $('gameErr').textContent = e.message; }
   };
@@ -784,6 +833,7 @@ function startLivePanel(v) {
       const r = await api('/api/games', { method: 'POST', body: JSON.stringify({
         opponent: 'twitch', color: cur.you, model: cur.llm?.model, channel: $('setChannel').value,
         voteSeconds: $('setVote').value, graceSeconds: $('setGrace').value,
+        autoNext: $('setNext').value, modelMode: cycle.mode(), modelPool: cycle.pool(),
       }) });
       store.set(r.id, { token: r.token, llmToken: r.llmToken, color: r.color, opponent: 'twitch', created: Date.now() });
       location.href = `/?g=${r.id}`;
@@ -808,8 +858,15 @@ async function liveLoop(live) {
           (top.length ? `<div class="tally">${top.map((m) => `<span>${m.san} ${m.votes}</span>`).join('')}</div>` : '');
         const due = lv.phase === 'idle' || lv.phase === 'closing';
         if (due && !ticking) { ticking = true; try { await live({ action: 'tick' }); } catch {} ticking = false; }
+        if (lv.phase === 'next' && lv.next) {
+          const at = lv.next.at ? Math.max(0, Math.ceil((lv.next.at - Date.now() - offset) / 1000)) : null;
+          $('liveState').innerHTML = `<b>Prossima partita</b>${at != null ? ` tra ${at}s` : ''}` +
+            (lv.next.mode === 'vote' ? `<div class="tally">${lv.next.options.map((o) => `<span>${o.n}. ${o.name} ${o.votes}</span>`).join('')}</div>` : '');
+          if ((!lv.next.at || Date.now() + offset >= lv.next.graceEndsAt) && !ticking) { ticking = true; try { await live({ action: 'tick' }); } catch {} ticking = false; }
+        }
       } else if (r.ok) {
-        $('liveState').innerHTML = '<b>Questa non è più la partita mostrata nell\'overlay</b>: ne hai creata una più recente.';
+        // l'overlay è passato a una partita più recente (ad es. quella partita in automatico)
+        $('liveState').innerHTML = `<b>L'overlay mostra una partita più recente.</b> <a href="/?g=${lv.gameId}">Vai alla partita in corso</a>`;
       }
     } catch {}
     await sleep(1000);

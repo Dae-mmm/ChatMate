@@ -2,9 +2,10 @@
 // GET  /api/live?key=<chiave>                          stato della live (turno, timer, voti)
 // POST /api/live { key, action: "votes", votes: [{ voter, move }] }   voti letti dalla chat
 // POST /api/live { key, action: "tick" }               fa avanzare i turni (apre / chiude il voto)
-// POST /api/live { key, action: "settings", channel?, voteSeconds?, graceSeconds? }  solo il proprietario (login)
+// POST /api/live { key, action: "settings", channel?, voteSeconds?, graceSeconds?, autoNext?, modelMode?, modelPool? }
+//      solo il proprietario (login); valgono per la partita in corso e vengono copiate nelle successive
 import { liveLatest, updateGame } from '../lib/store.js';
-import { liveView, tick, addVotes, LIMITS, clamp, cleanChannel, validChannel } from '../lib/live.js';
+import { liveView, tick, addVotes, LIMITS, clamp, cleanChannel, validChannel, cleanPool, MODEL_MODES } from '../lib/live.js';
 import { getUser, readBody } from '../lib/auth.js';
 
 const KEY_RE = /^[A-Za-z0-9_-]{16,64}$/;
@@ -40,6 +41,14 @@ export default async function handler(req, res) {
       }
       if (body.voteSeconds != null) patch.vote_seconds = clamp(body.voteSeconds, LIMITS.vote);
       if (body.graceSeconds != null) patch.grace_seconds = clamp(body.graceSeconds, LIMITS.grace);
+      if (body.autoNext != null) patch.auto_next_seconds = clamp(body.autoNext, LIMITS.next) || null;
+      if (body.modelPool != null) patch.model_pool = cleanPool(body.modelPool);
+      if (body.modelMode != null) {
+        if (!MODEL_MODES.includes(body.modelMode)) return res.status(400).json({ error: 'Modalità di scelta del modello non valida.' });
+        const pool = patch.model_pool ?? row.model_pool ?? [];
+        if (body.modelMode !== 'fixed' && pool.length < 2) return res.status(400).json({ error: 'Per il modello casuale o votato servono almeno 2 modelli in gara.' });
+        patch.model_mode = body.modelMode;
+      }
       const updated = await updateGame(row.id, row.version, patch);
       if (!updated) return res.status(409).json({ error: 'La partita è appena cambiata, riprova.' });
       return res.status(200).json(await liveView(updated, { owner: true }));
