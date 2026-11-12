@@ -630,6 +630,7 @@ function render() {
     ol.append(li);
   }
   ol.scrollTop = ol.scrollHeight;
+  $('copyPgn').hidden = !v.moves.length;
 
   // invito
   const freeHuman = [v.white, v.black].some((p) => p.kind === 'human' && !p.joined);
@@ -686,6 +687,28 @@ function render() {
 function lastMoveOf(v, color) {
   for (let i = v.moves.length - 1; i >= 0; i--) if ((i % 2 === 0) === (color === 'w')) return v.moves[i];
   return null;
+}
+
+// PGN della partita (intestazioni standard + mosse numerate)
+function toPGN(v) {
+  const name = (p, c) => p.name || (c === 'w' ? 'White' : 'Black');
+  const esc = (s) => String(s).replace(/["\\]/g, '');
+  const d = new Date();
+  const result = v.over ? v.result : '*';
+  const tags = [
+    ['Event', 'ChatMate game'], ['Site', `${location.origin}/?g=${v.id}`],
+    ['Date', `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`],
+    ['White', name(v.white, 'w')], ['Black', name(v.black, 'b')], ['Result', result],
+  ];
+  if (v.over && v.reason) tags.push(['Termination', v.reason.replace(/_/g, ' ')]);
+  const parts = [];
+  v.moves.forEach((m, i) => { if (i % 2 === 0) parts.push(`${i / 2 + 1}.`); parts.push(m); });
+  parts.push(result);
+  // righe di al massimo 80 caratteri, come vuole lo standard
+  const lines = []; let line = '';
+  for (const p of parts) { if (line && line.length + 1 + p.length > 80) { lines.push(line); line = p; } else line = line ? `${line} ${p}` : p; }
+  if (line) lines.push(line);
+  return `${tags.map(([k, val]) => `[${k} "${esc(val)}"]`).join('\n')}\n\n${lines.join('\n')}\n`;
 }
 
 async function send(action, extra = {}) {
@@ -831,6 +854,7 @@ async function initGame(id) {
   $('declineDraw').onclick = () => send('decline_draw');
   document.querySelectorAll('[data-copy]').forEach((b) => (b.onclick = () => copy($(b.dataset.copy).value)));
   $('copyPrompt').onclick = () => copy($('promptText').value);
+  $('copyPgn').onclick = () => S.view && copy(toPGN(S.view));
   $('llmSelect').onchange = () => { if ($('llmSelect').value) $('llmAnswer').value = $('llmSelect').value; };
   $('llmAnswer').onkeydown = (e) => { if (e.key === 'Enter') $('sendAnswer').click(); };
   $('sendAnswer').onclick = async () => {
