@@ -987,7 +987,7 @@ function llmErrorText(code) {
 function startLivePanel(v) {
   S.liveKey = v.ownerTokens.liveKey;
   const ol = $('overlayLang');
-  ol.replaceChildren(...Object.entries(LANGS).map(([c, n]) => new Option(n, c, false, c === lang)));
+  ol.replaceChildren(...Object.entries(LANGS).map(([c, n]) => new Option(n, c, false, c === 'en'))); // overlay in inglese di default
   const url = () => `${location.origin}/overlay.html?key=${S.liveKey}&lang=${ol.value}${$('overlayTransparent').checked ? '&bg=transparent' : ''}`;
   $('overlayUrl').value = url();
   $('overlayTransparent').onchange = ol.onchange = () => { $('overlayUrl').value = url(); };

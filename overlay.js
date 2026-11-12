@@ -1,13 +1,14 @@
 // Overlay per OBS: mostra la live, legge la chat Twitch (in sola lettura, senza login) e invia i voti.
 import { normalizeVote } from '/lib/vote.js';
-import { t, useLang, detectLang } from '/i18n.js';
+import { t, useLang } from '/i18n.js';
 
 const $ = (id) => document.getElementById(id);
 const qs = new URLSearchParams(location.search);
 const KEY = qs.get('key') || '';
 if (qs.get('bg') === 'transparent') document.body.classList.add('transparent');
-useLang(qs.get('lang') || detectLang());
-document.documentElement.lang = qs.get('lang') || detectLang();
+// L'overlay è in inglese, salvo una lingua diversa scelta nell'indirizzo (?lang=)
+useLang(qs.get('lang') || 'en');
+document.documentElement.lang = qs.get('lang') || 'en';
 $('phase').textContent = t('ov.connecting');
 
 const COLORS = ['#E8613C', '#1FB386', '#8B7FE8', '#F2A93B', '#4C9BE8'];
