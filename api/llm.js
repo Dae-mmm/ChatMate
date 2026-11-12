@@ -6,22 +6,8 @@
 //   &format=json                                  -> risposta JSON invece che testo
 // Mosse speciali: "resign" (abbandona), "draw" (propone o accetta la patta).
 import { getGame } from '../lib/store.js';
-import { seatOf, llmPrompt, evaluate } from '../lib/view.js';
+import { seatOf, llmPrompt, evaluate, extractMove } from '../lib/view.js';
 import { act, waitForChange, baseUrl, UserError } from '../lib/actions.js';
-
-// Dall'output di un LLM estrae la mossa: accetta anche risposte "sporche" tipo "Move: **Nf3**".
-function extractMove(raw, legal) {
-  if (raw == null) return null;
-  const text = String(raw).trim();
-  if (!text) return null;
-  const cleaned = text.replace(/[*`"'“”]/g, ' ').trim();
-  const tokens = cleaned.split(/[\s,;:]+/).filter(Boolean);
-  const strip = (t) => t.replace(/[+#!?.]+$/g, '');
-  // Preferisce l'ultima parola che corrisponde a una mossa legale (di solito la risposta finale).
-  const legalSet = new Set(legal.map(strip));
-  for (let i = tokens.length - 1; i >= 0; i--) if (legalSet.has(strip(tokens[i]))) return strip(tokens[i]);
-  return cleaned; // lascia decidere al parser tollerante (UCI, minuscole, ecc.)
-}
 
 function send(res, fmt, status, payload) {
   res.setHeader('Cache-Control', 'no-store');

@@ -1,9 +1,7 @@
--- Schema del database (Supabase / Postgres).
+-- 1) Partite: tabella games, configurazione del segreto server e funzioni RPC protette.
 -- Le tabelle non sono accessibili direttamente: il sito passa solo dalle funzioni chess_*,
--- che richiedono il segreto del server (CHESS_SERVER_SECRET su Vercel).
--- Dopo aver eseguito questo file, salva l'hash del segreto:
---   insert into public.app_config(key, value)
---   values ('server_secret_sha256', encode(sha256(convert_to('<IL_TUO_SEGRETO>', 'UTF8')), 'hex'));
+-- che richiedono il segreto del server (CHESS_SERVER_SECRET su Vercel). Vedi supabase/README.md.
+
 
 create table public.games (
   id text primary key,

@@ -10,10 +10,72 @@
 <body>
   <header class="top">
     <a href="/" class="brand"><span class="logo">♞</span> ChatMate</a>
+    <nav class="nav">
+      <span id="navUser" class="navUser" hidden></span>
+      <a href="/?p=account" id="navAccount" class="navLink" hidden>Account</a>
+      <button id="navLogout" class="navLink linkBtn" hidden>Esci</button>
+      <a href="/?p=login" id="navLogin" class="navLink" hidden>Accedi</a>
+    </nav>
   </header>
 
+  <!-- Accesso / registrazione -->
+  <main id="auth" class="narrow" hidden>
+    <section class="card">
+      <div class="seg" id="authTabs">
+        <button data-v="login" class="on">Accedi</button>
+        <button data-v="signup">Registrati</button>
+      </div>
+      <form id="authForm" class="stack">
+        <label class="field">Email
+          <input id="authEmail" type="email" autocomplete="email" required>
+        </label>
+        <label class="field" id="authPassField">Password
+          <input id="authPass" type="password" autocomplete="current-password" minlength="6" required>
+        </label>
+        <button id="authSubmit" class="primary" type="submit">Accedi</button>
+        <button id="authForgot" class="linkBtn" type="button">Password dimenticata?</button>
+      </form>
+      <form id="resetForm" class="stack" hidden>
+        <p class="hint">Scegli una nuova password.</p>
+        <label class="field">Nuova password
+          <input id="newPass" type="password" autocomplete="new-password" minlength="6" required>
+        </label>
+        <button class="primary" type="submit">Salva password</button>
+      </form>
+      <p id="authMsg" class="msg"></p>
+    </section>
+  </main>
+
+  <!-- Account -->
+  <main id="account" class="narrow" hidden>
+    <section class="card">
+      <h1>Il tuo account</h1>
+      <p class="hint" id="accEmail"></p>
+
+      <h3>Chiave OpenRouter</h3>
+      <p class="hint">Con la tua chiave l'LLM gioca da solo: ogni mossa è una chiamata al modello che scegli, pagata dal tuo credito OpenRouter. La chiave viene salvata cifrata e non viene mai mostrata di nuovo. Creane una su <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>.</p>
+      <div id="keyStatus" class="keyStatus"></div>
+      <div class="copyRow">
+        <input id="keyInput" type="password" placeholder="sk-or-..." autocomplete="off">
+        <button id="keySave" class="small primary">Salva</button>
+      </div>
+      <button id="keyRemove" class="small danger" hidden>Rimuovi chiave</button>
+
+      <h3 class="mt">Modello predefinito</h3>
+      <p class="hint">Lo usi per le nuove partite; puoi cambiarlo ogni volta.</p>
+      <div class="modelPick" id="accModelPick"></div>
+      <button id="modelSave" class="small primary">Salva modello</button>
+      <p id="accMsg" class="msg"></p>
+    </section>
+
+    <section class="card subtle">
+      <h2>Le tue partite</h2>
+      <ul id="accGames" class="gameList"></ul>
+    </section>
+  </main>
+
   <!-- Lobby -->
-  <main id="lobby" class="lobby" hidden>
+  <main id="lobby" class="narrow" hidden>
     <section class="card">
       <h1>Nuova partita</h1>
       <label class="field">Il tuo nome
@@ -22,14 +84,23 @@
 
       <div class="field">Contro chi giochi
         <div class="seg" id="opponent">
-          <button data-v="human" class="on">Un amico</button>
-          <button data-v="llm">Un LLM</button>
+          <button data-v="llm" class="on">Un LLM</button>
+          <button data-v="human">Un amico</button>
         </div>
       </div>
 
-      <label class="field" id="llmNameField" hidden>Nome dell'LLM
-        <input id="llmName" maxlength="30" placeholder="Es. Claude, GPT, Llama locale">
-      </label>
+      <div id="llmOptions">
+        <div class="field" id="modeField">Come gioca l'LLM
+          <div class="seg" id="mode">
+            <button data-v="auto" class="on">Da solo (OpenRouter)</button>
+            <button data-v="manual">Copia e incolla</button>
+          </div>
+        </div>
+        <div class="field" id="modelField">Modello
+          <div class="modelPick" id="lobbyModelPick"></div>
+        </div>
+        <p class="hint" id="llmHint"></p>
+      </div>
 
       <div class="field">Il tuo colore
         <div class="seg" id="color">
@@ -44,8 +115,8 @@
     </section>
 
     <section class="card subtle" id="myGames" hidden>
-      <h2>Le tue partite</h2>
-      <ul id="gameList"></ul>
+      <h2>Partite recenti</h2>
+      <ul id="gameList" class="gameList"></ul>
     </section>
   </main>
 
@@ -77,15 +148,43 @@
         <div class="copyRow"><input id="inviteUrl" readonly><button class="small" data-copy="inviteUrl">Copia</button></div>
       </div>
 
-      <div class="card" id="llmCard" hidden>
-        <h3>Collega l'LLM</h3>
-        <p class="hint">Se l'LLM può aprire URL (agenti, tool HTTP, script), dagli questo indirizzo: riceverà la mossa dell'avversario, la lista delle mosse possibili e le istruzioni per rispondere.</p>
-        <div class="copyRow"><input id="llmUrl" readonly><button class="small" data-copy="llmUrl">Copia</button></div>
+      <!-- LLM: modalità automatica -->
+      <div class="card" id="llmAuto" hidden>
+        <h3>LLM · <span id="llmModel"></span></h3>
+        <div id="llmState" class="llmState"></div>
+        <div id="llmErrBox" class="errBox" hidden>
+          <p id="llmErrText"></p>
+          <button id="llmRetry" class="small primary">Riprova</button>
+        </div>
+        <details id="llmReplyBox" hidden>
+          <summary>Ultima risposta del modello</summary>
+          <pre id="llmReply" class="reply"></pre>
+        </details>
+      </div>
+
+      <!-- LLM: modalità copia e incolla (anche come ripiego se la modalità automatica fallisce) -->
+      <div class="card" id="llmManual" hidden>
+        <h3>Mossa dell'LLM</h3>
+        <ol class="steps">
+          <li>Copia il prompt e incollalo nella chat del tuo LLM.
+            <textarea id="promptText" readonly rows="6"></textarea>
+            <button id="copyPrompt" class="small primary">Copia il prompt</button>
+          </li>
+          <li>Che mossa ti ha detto? Scrivila (va bene anche incollare tutta la risposta) oppure sceglila dall'elenco.
+            <div class="copyRow">
+              <input id="llmAnswer" placeholder="Es. Nf6">
+              <select id="llmSelect"><option value="">Elenco…</option></select>
+            </div>
+            <button id="sendAnswer" class="small primary">Gioca la mossa</button>
+          </li>
+        </ol>
+      </div>
+
+      <div class="card" id="llmApiCard" hidden>
         <details>
-          <summary>Modalità manuale (copia e incolla)</summary>
-          <p class="hint">Per gli LLM in chat senza accesso al web: copia il prompt, incollalo nella chat, poi incolla qui la risposta.</p>
-          <button id="copyPrompt" class="small">Copia il prompt per l'LLM</button>
-          <div class="copyRow"><input id="llmAnswer" placeholder="Risposta dell'LLM, es. Nf6"><button id="sendAnswer" class="small primary">Gioca</button></div>
+          <summary>Collegare un LLM via API</summary>
+          <p class="hint">Agenti e script possono giocare da soli aprendo questo indirizzo: ricevono la mossa avversaria, le mosse possibili e le istruzioni per rispondere.</p>
+          <div class="copyRow"><input id="llmUrl" readonly><button class="small" data-copy="llmUrl">Copia</button></div>
         </details>
       </div>
 

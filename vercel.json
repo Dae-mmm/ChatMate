@@ -1,5 +1,11 @@
 {
   "functions": {
-    "api/*.js": { "maxDuration": 60 }
+    "api/account.js": { "maxDuration": 30 },
+    "api/config.js": { "maxDuration": 10 },
+    "api/game.js": { "maxDuration": 60 },
+    "api/games.js": { "maxDuration": 30 },
+    "api/llm.js": { "maxDuration": 60 },
+    "api/llm-turn.js": { "maxDuration": 300 },
+    "api/models.js": { "maxDuration": 30 }
   }
 }

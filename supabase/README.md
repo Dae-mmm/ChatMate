@@ -1,0 +1,28 @@
+# Database (Supabase)
+
+Le migration in `migrations/` vanno applicate **in ordine** (il nome inizia con data e ora):
+
+| File | Cosa fa |
+| --- | --- |
+| `20261112080000_chess_games.sql` | Tabella `games`, tabella `app_config` e funzioni `chess_get/create/update` protette dal segreto del server |
+| `20261112100000_accounts_and_llm.sql` | Account: tabella `profiles` (chiave OpenRouter cifrata, modello predefinito), partite collegate al proprietario, stato del turno dell'LLM |
+
+Ogni nuova modifica al database va aggiunta qui come nuovo file, mai modificando quelli esistenti.
+
+## Spostare il progetto su un altro account Supabase
+
+1. Crea il nuovo progetto Supabase.
+2. Applica le migration, in uno di questi modi:
+   - con la CLI: `supabase link --project-ref <ref>` e poi `supabase db push`;
+   - a mano: incolla i file, uno alla volta e in ordine, nell'SQL Editor.
+3. Salva l'hash del segreto del server (lo stesso valore di `CHESS_SERVER_SECRET` su Vercel; puoi generarne uno nuovo):
+   ```sql
+   insert into public.app_config(key, value)
+   values ('server_secret_sha256', encode(sha256(convert_to('<IL_TUO_SEGRETO>', 'UTF8')), 'hex'));
+   ```
+4. In **Authentication → URL Configuration** imposta *Site URL* sull'indirizzo del sito (es. `https://chatmate-chess.vercel.app`) e aggiungilo anche ai *Redirect URLs*: serve per i link di conferma email e di recupero password.
+5. Su Vercel aggiorna `SUPABASE_URL` e `SUPABASE_ANON_KEY` con i valori del nuovo progetto e ripubblica.
+
+`KEY_ENC_SECRET` (la chiave che cifra le chiavi OpenRouter) non dipende da Supabase. Se però la cambi, le chiavi già salvate non si possono più leggere e gli utenti devono reinserirle.
+
+Le partite e gli account esistenti non vengono copiati dalle migration. Se ti servono, esporta e reimporta i dati delle tabelle `games`, `profiles` e degli utenti di `auth.users`.

@@ -3,18 +3,95 @@ import { sqName } from '/lib/chess.js';
 const $ = (id) => document.getElementById(id);
 const GLYPH = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' };
 const TEXT = '︎'; // forza la versione "testo" dei simboli (niente emoji)
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// ---------- memoria locale (token delle partite) ----------
+// ---------- memoria locale ----------
+const ls = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
 const store = {
-  all() { try { return JSON.parse(localStorage.getItem('scacchi:games') || '{}'); } catch { return {}; } },
+  all() { return ls.get('scacchi:games', {}); },
   get(id) { return this.all()[id] || null; },
-  set(id, v) { try { const a = this.all(); a[id] = { ...(a[id] || {}), ...v }; localStorage.setItem('scacchi:games', JSON.stringify(a)); } catch {} },
-  name() { try { return localStorage.getItem('scacchi:name') || ''; } catch { return ''; } },
-  setName(n) { try { localStorage.setItem('scacchi:name', n); } catch {} },
+  set(id, v) { const a = this.all(); a[id] = { ...(a[id] || {}), ...v }; ls.set('scacchi:games', a); },
+  name() { return ls.get('scacchi:name', ''); },
+  setName(n) { ls.set('scacchi:name', n); },
 };
 
+// ---------- account (Supabase Auth via REST) ----------
+const auth = {
+  cfg: null,
+  session: ls.get('chatmate:session', null),
+  async config() {
+    if (!this.cfg) this.cfg = await fetch('/api/config').then((r) => r.json());
+    return this.cfg;
+  },
+  async call(path, body, token) {
+    const c = await this.config();
+    const r = await fetch(`${c.supabaseUrl}/auth/v1/${path}`, {
+      method: body === undefined ? 'GET' : path === 'user' ? 'PUT' : 'POST',
+      headers: { apikey: c.supabaseAnonKey, 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(authError(data));
+    return data;
+  },
+  save(d) {
+    this.session = {
+      access_token: d.access_token,
+      refresh_token: d.refresh_token,
+      expires_at: Date.now() + (Number(d.expires_in) || 3600) * 1000,
+      email: d.user?.email || this.session?.email || null,
+    };
+    ls.set('chatmate:session', this.session);
+  },
+  clear() { this.session = null; ls.del('chatmate:session'); },
+  async token() {
+    const s = this.session;
+    if (!s) return null;
+    if (Date.now() < s.expires_at - 60_000) return s.access_token;
+    try { this.save(await this.call('token?grant_type=refresh_token', { refresh_token: s.refresh_token })); return this.session.access_token; }
+    catch { this.clear(); renderNav(); return null; }
+  },
+  async signIn(email, password) { this.save(await this.call('token?grant_type=password', { email, password })); },
+  async signUp(email, password) {
+    const d = await this.call(`signup?redirect_to=${encodeURIComponent(location.origin + '/')}`, { email, password });
+    if (d.access_token) { this.save(d); return 'in'; }
+    return 'confirm';
+  },
+  async recover(email) { await this.call(`recover?redirect_to=${encodeURIComponent(location.origin + '/')}`, { email }); },
+  async setPassword(password) { await this.call('user', { password }, await this.token()); },
+  async signOut() { const t = this.session?.access_token; this.clear(); if (t) this.call('logout', {}, t).catch(() => {}); },
+};
+
+function authError(d) {
+  const m = String(d.msg || d.error_description || d.message || d.error || '').toLowerCase();
+  if (m.includes('invalid login')) return 'Email o password non corretti.';
+  if (m.includes('not confirmed')) return 'Devi prima confermare l\'email: controlla la posta.';
+  if (m.includes('already registered')) return 'Esiste già un account con questa email.';
+  if (m.includes('password should be')) return 'La password deve avere almeno 6 caratteri.';
+  if (m.includes('rate limit') || m.includes('seconds')) return 'Troppi tentativi, riprova tra qualche minuto.';
+  return d.msg || d.error_description || d.message || 'Errore di accesso.';
+}
+
+// Ritorno dal link nell'email (conferma registrazione o recupero password): i token sono nell'hash dell'URL.
+function consumeAuthHash() {
+  if (!location.hash.includes('access_token') && !location.hash.includes('error')) return null;
+  const p = new URLSearchParams(location.hash.slice(1));
+  history.replaceState(null, '', location.pathname + location.search);
+  if (p.get('error')) { toast(p.get('error_description') || 'Link non valido o scaduto.'); return null; }
+  auth.save({ access_token: p.get('access_token'), refresh_token: p.get('refresh_token'), expires_in: p.get('expires_in') });
+  return p.get('type');
+}
+
 async function api(path, opts = {}) {
-  const r = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const token = await auth.token();
+  const r = await fetch(path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(opts.headers || {}) },
+  });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data.error || `Errore ${r.status}`);
   return data;
@@ -22,55 +99,216 @@ async function api(path, opts = {}) {
 
 function toast(msg) {
   const t = $('toast'); t.textContent = msg; t.hidden = false;
-  clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 2200);
+  clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 2600);
 }
-
 async function copy(text) {
   try { await navigator.clipboard.writeText(text); toast('Copiato'); }
   catch { toast('Copia non riuscita: seleziona il testo a mano'); }
 }
+function segValue(id) { return $(id).querySelector('.on').dataset.v; }
+function initSeg(id, onChange) {
+  $(id).addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    e.preventDefault();
+    $(id).querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+    onChange?.(b.dataset.v);
+  });
+}
+const msg = (el, text, ok = false) => { el.textContent = text || ''; el.classList.toggle('ok', ok); };
+
+function renderNav() {
+  const s = auth.session;
+  $('navUser').hidden = $('navAccount').hidden = $('navLogout').hidden = !s;
+  $('navLogin').hidden = !!s;
+  $('navUser').textContent = s?.email || '';
+}
+
+// ---------- selettore del modello (lista curata + ID libero) ----------
+let modelsPromise = null;
+const loadModels = () => (modelsPromise ||= fetch('/api/models').then((r) => r.json()).catch(() => ({ groups: [] })));
+
+// Importi piccoli: due cifre significative (0,0012 $), importi normali con due decimali.
+const usd = (x) => (x === 0 ? 'gratis' : x < 0.01 ? `$${x.toPrecision(2)}` : `$${x.toFixed(2)}`);
+
+async function modelPicker(container, initial) {
+  container.innerHTML = '';
+  const sel = document.createElement('select');
+  const custom = document.createElement('input');
+  custom.placeholder = 'ID modello, es. anthropic/claude-…';
+  custom.hidden = true;
+  const info = document.createElement('p'); info.className = 'hint costInfo';
+  container.append(sel, custom, info);
+  const { groups, estimate } = await loadModels();
+  const byId = {};
+  let found = false;
+  for (const g of groups) {
+    const og = document.createElement('optgroup'); og.label = g.label;
+    for (const m of g.models) {
+      byId[m.id] = m;
+      const o = document.createElement('option'); o.value = m.id;
+      o.textContent = m.name + (m.cost ? ` · ${m.cost.perMove === 0 ? 'gratis' : `~${usd(m.cost.perGame[0])}–${usd(m.cost.perGame[1])} a partita`}` : '');
+      if (m.id === initial) { o.selected = true; found = true; }
+      og.append(o);
+    }
+    sel.append(og);
+  }
+  const other = document.createElement('option'); other.value = '__custom'; other.textContent = 'Altro (scrivi l\'ID)…';
+  sel.append(other);
+  if (initial && !found) { other.selected = true; custom.hidden = false; custom.value = initial; }
+  if (!groups.length) { other.selected = true; custom.hidden = false; }
+  const showInfo = () => {
+    const m = byId[sel.value];
+    if (!m || !m.cost) { info.textContent = sel.value === '__custom' ? 'Costo non stimato per i modelli scritti a mano.' : ''; return; }
+    const c = m.cost, [a, b] = estimate.movesPerGame;
+    info.textContent = c.perMove === 0
+      ? 'Modello gratuito (con limiti di utilizzo di OpenRouter).'
+      : `Stima: ~${usd(c.perMove)} a mossa · ${usd(c.perGame[0])}–${usd(c.perGame[1])} a partita (${a}–${b} mosse dell'LLM).` +
+        (c.reasoning ? ' Modello con ragionamento: il costo reale può variare molto, anche di parecchio in più.' : '');
+  };
+  sel.onchange = () => { custom.hidden = sel.value !== '__custom'; if (!custom.hidden) custom.focus(); showInfo(); };
+  showInfo();
+  return { value: () => (sel.value === '__custom' ? custom.value.trim() : sel.value) };
+}
+
+// ---------- pagina accesso ----------
+function initAuth(recovery = false) {
+  $('auth').hidden = false;
+  let tab = 'login';
+  const setTab = (t) => {
+    tab = t;
+    $('authSubmit').textContent = t === 'login' ? 'Accedi' : t === 'signup' ? 'Crea account' : 'Invia link di recupero';
+    $('authPassField').hidden = t === 'forgot';
+    $('authPass').required = t !== 'forgot';
+    $('authPass').autocomplete = t === 'signup' ? 'new-password' : 'current-password';
+    $('authForgot').hidden = t !== 'login';
+    msg($('authMsg'), '');
+  };
+  initSeg('authTabs', setTab);
+  $('authForgot').onclick = () => setTab('forgot');
+  $('authForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const email = $('authEmail').value.trim(), pass = $('authPass').value;
+    $('authSubmit').disabled = true; msg($('authMsg'), '');
+    try {
+      if (tab === 'login') { await auth.signIn(email, pass); location.href = '/'; return; }
+      if (tab === 'signup') {
+        const r = await auth.signUp(email, pass);
+        if (r === 'in') { location.href = '/?p=account'; return; }
+        msg($('authMsg'), 'Ti abbiamo mandato un\'email: apri il link per confermare l\'account.', true);
+      } else {
+        await auth.recover(email);
+        msg($('authMsg'), 'Se l\'email è registrata, riceverai un link per scegliere una nuova password.', true);
+      }
+    } catch (err) { msg($('authMsg'), err.message); }
+    $('authSubmit').disabled = false;
+  };
+  if (recovery) {
+    $('authForm').hidden = true; $('authTabs').hidden = true; $('resetForm').hidden = false;
+    $('resetForm').onsubmit = async (e) => {
+      e.preventDefault();
+      try { await auth.setPassword($('newPass').value); toast('Password aggiornata'); location.href = '/'; }
+      catch (err) { msg($('authMsg'), err.message); }
+    };
+  }
+}
+
+// ---------- pagina account ----------
+async function initAccount() {
+  if (!auth.session) { location.href = '/?p=login'; return; }
+  $('account').hidden = false;
+  let acc;
+  const render = () => {
+    $('accEmail').textContent = `Accesso come ${acc.email}`;
+    $('keyStatus').innerHTML = acc.hasKey
+      ? `<span class="badge ok">Collegata</span> chiave che termina con <code>…${escapeHtml(acc.keyLast4)}</code>`
+      : '<span class="badge">Nessuna chiave</span> senza chiave giochi in modalità copia e incolla.';
+    $('keyRemove').hidden = !acc.hasKey;
+    $('keyInput').placeholder = acc.hasKey ? 'Incolla una nuova chiave per sostituirla' : 'sk-or-...';
+    const ul = $('accGames'); ul.innerHTML = '';
+    if (!acc.games.length) ul.innerHTML = '<li class="hint">Ancora nessuna partita.</li>';
+    for (const g of acc.games) ul.append(gameItem(g.id, g.vsLlm ? `vs ${g.opponent}` : 'vs amico', `${g.moves} mosse · ${g.status}`));
+  };
+  try { acc = await api('/api/account'); } catch (e) { msg($('accMsg'), e.message); return; }
+  render();
+  const picker = await modelPicker($('accModelPick'), acc.defaultModel);
+  $('keySave').onclick = async () => {
+    const key = $('keyInput').value.trim(); if (!key) return;
+    $('keySave').disabled = true; msg($('accMsg'), 'Verifico la chiave…', true);
+    try { acc = { ...acc, ...(await api('/api/account', { method: 'POST', body: JSON.stringify({ action: 'set_key', key }) })) }; $('keyInput').value = ''; render(); msg($('accMsg'), 'Chiave salvata.', true); }
+    catch (e) { msg($('accMsg'), e.message); }
+    $('keySave').disabled = false;
+  };
+  $('keyRemove').onclick = async () => {
+    if (!confirmInline($('keyRemove'), 'Sicuro? Clicca di nuovo', 'Rimuovi chiave')) return;
+    try { acc = { ...acc, ...(await api('/api/account', { method: 'POST', body: JSON.stringify({ action: 'remove_key' }) })) }; render(); msg($('accMsg'), 'Chiave rimossa.', true); }
+    catch (e) { msg($('accMsg'), e.message); }
+  };
+  $('modelSave').onclick = async () => {
+    try { acc = { ...acc, ...(await api('/api/account', { method: 'POST', body: JSON.stringify({ action: 'set_model', model: picker.value() }) })) }; msg($('accMsg'), 'Modello salvato.', true); }
+    catch (e) { msg($('accMsg'), e.message); }
+  };
+}
+
+function gameItem(id, title, sub) {
+  const li = document.createElement('li');
+  const a = document.createElement('a'); a.href = `/?g=${id}`; a.textContent = title;
+  const s = document.createElement('span'); s.textContent = sub;
+  a.append(s); li.append(a); return li;
+}
 
 // ---------- lobby ----------
-function segValue(id) { return $(id).querySelector('.on').dataset.v; }
-function initLobby() {
+async function initLobby() {
   $('lobby').hidden = false;
-  $('name').value = store.name();
-  for (const id of ['opponent', 'color']) {
-    $(id).addEventListener('click', (e) => {
-      const b = e.target.closest('button'); if (!b) return;
-      $(id).querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
-      if (id === 'opponent') $('llmNameField').hidden = b.dataset.v !== 'llm';
-    });
-  }
+  let acc = null;
+  if (auth.session) { try { acc = await api('/api/account'); } catch {} }
+  $('name').value = store.name() || (acc?.email ? acc.email.split('@')[0] : '');
+  let picker = null;
+  const updateLlmUi = async () => {
+    const vsLlm = segValue('opponent') === 'llm';
+    $('llmOptions').hidden = !vsLlm;
+    if (!vsLlm) return;
+    const canAuto = !!acc?.hasKey;
+    $('modeField').hidden = !canAuto;
+    const auto = canAuto && segValue('mode') === 'auto';
+    $('modelField').hidden = !auto;
+    if (auto && !picker) picker = await modelPicker($('lobbyModelPick'), acc.defaultModel);
+    $('llmHint').innerHTML = !acc
+      ? 'Senza account giochi in modalità copia e incolla. <a href="/?p=login">Accedi</a> e collega la tua chiave OpenRouter per far giocare l\'LLM da solo.'
+      : !canAuto
+        ? 'Nessuna chiave OpenRouter: giochi in modalità copia e incolla. <a href="/?p=account">Collega una chiave</a> per far giocare l\'LLM da solo.'
+        : auto ? 'L\'LLM risponde da solo a ogni tua mossa, usando il tuo credito OpenRouter.' : 'Per ogni mossa copi il prompt nella chat del tuo LLM e inserisci la sua risposta.';
+  };
+  initSeg('opponent', updateLlmUi);
+  initSeg('mode', updateLlmUi);
+  initSeg('color');
+  updateLlmUi();
+
   $('create').onclick = async () => {
     $('create').disabled = true; $('lobbyErr').textContent = '';
     try {
       const name = $('name').value.trim(); store.setName(name);
       const opponent = segValue('opponent');
+      const auto = opponent === 'llm' && acc?.hasKey && segValue('mode') === 'auto';
+      const model = auto && picker ? picker.value() : null;
+      if (auto && !model) throw new Error('Scegli un modello.');
       const r = await api('/api/games', { method: 'POST', body: JSON.stringify({
-        name, opponent, color: segValue('color'), opponentName: $('llmName').value.trim(),
+        name, opponent, color: segValue('color'), mode: auto ? 'auto' : 'manual', model,
       }) });
       store.set(r.id, { token: r.token, llmToken: r.llmToken, color: r.color, opponent, created: Date.now() });
       location.href = `/?g=${r.id}`;
     } catch (e) { $('lobbyErr').textContent = e.message; $('create').disabled = false; }
   };
-  const games = Object.entries(store.all()).sort((a, b) => (b[1].created || 0) - (a[1].created || 0)).slice(0, 10);
-  if (games.length) {
-    $('myGames').hidden = false;
-    $('gameList').innerHTML = '';
-    for (const [id, g] of games) {
-      const li = document.createElement('li');
-      const a = document.createElement('a'); a.href = `/?g=${id}`;
-      a.textContent = `Partita ${id}`;
-      const s = document.createElement('span');
-      s.textContent = `${g.opponent === 'llm' ? 'vs LLM' : 'vs amico'} · ${g.color === 'w' ? 'Bianco' : g.color === 'b' ? 'Nero' : ''}`;
-      a.append(s); li.append(a); $('gameList').append(li);
-    }
-  }
+
+  // Partite recenti: dall'account se collegato, altrimenti da questo browser
+  const local = Object.entries(store.all()).sort((a, b) => (b[1].created || 0) - (a[1].created || 0)).slice(0, 8);
+  const items = acc?.games?.length
+    ? acc.games.slice(0, 8).map((g) => gameItem(g.id, g.vsLlm ? `vs ${g.opponent}` : 'vs amico', `${g.moves} mosse · ${g.status}`))
+    : local.map(([id, g]) => gameItem(id, g.opponent === 'llm' ? 'vs LLM' : 'vs amico', g.color === 'w' ? 'Bianco' : g.color === 'b' ? 'Nero' : ''));
+  if (items.length) { $('myGames').hidden = false; $('gameList').replaceChildren(...items); }
 }
 
 // ---------- partita ----------
-const S = { id: null, token: null, llmToken: null, view: null, flipped: false, sel: null, pendingPromo: null, drag: null };
+const S = { id: null, token: null, llmToken: null, view: null, flipped: false, sel: null, drag: null, llmKick: false, promptFor: null };
 
 function parsePlacement(fen) {
   const board = {};
@@ -92,8 +330,7 @@ function pieceEl(p) {
 }
 
 function orientation() {
-  const v = S.view;
-  const base = v && v.you === 'b' ? 'b' : 'w';
+  const base = S.view && S.view.you === 'b' ? 'b' : 'w';
   return S.flipped ? (base === 'w' ? 'b' : 'w') : base;
 }
 
@@ -117,7 +354,7 @@ function renderBoard() {
       if (v.legal.some((m) => m.from === name)) d.classList.add('mine');
       if (col === 0) { const c = document.createElement('span'); c.className = 'coord r'; c.textContent = r + 1; d.append(c); }
       if (row === 7) { const c = document.createElement('span'); c.className = 'coord f'; c.textContent = 'abcdefgh'[f]; d.append(c); }
-      if (pos[name]) { const p = pieceEl(pos[name]); d.append(p); if (S.drag && S.drag.from === name) d.classList.add('ghost'); }
+      if (pos[name]) { d.append(pieceEl(pos[name])); if (S.drag && S.drag.from === name) d.classList.add('ghost'); }
       el.append(d);
     }
   }
@@ -132,22 +369,23 @@ function playerLine(color) {
   wrap.append(dot, name);
   if (p.kind === 'llm') { const t = document.createElement('span'); t.className = 'tag'; t.textContent = 'LLM'; wrap.append(t); }
   if (v.you === color) { const t = document.createElement('span'); t.className = 'tag'; t.textContent = 'tu'; wrap.append(t); }
+  if (p.kind === 'llm' && v.llm?.thinking) { const t = document.createElement('span'); t.className = 'thinking'; t.textContent = 'sta pensando'; wrap.append(t); }
   return wrap;
 }
+
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 function render() {
   const v = S.view; if (!v) return;
   renderBoard();
   const pov = orientation();
-  const top = pov === 'w' ? 'b' : 'w', bottom = pov;
-  for (const [el, c] of [[$('pTop'), top], [$('pBottom'), bottom]]) {
+  for (const [el, c] of [[$('pTop'), pov === 'w' ? 'b' : 'w'], [$('pBottom'), pov]]) {
     el.innerHTML = ''; el.append(playerLine(c)); el.classList.toggle('turn', !v.over && v.turn === c);
   }
   // stato
   const who = (c) => { const p = c === 'w' ? v.white : v.black; return p.name || (c === 'w' ? 'il Bianco' : 'il Nero'); };
+  const oppSide = v.you ? (v.you === 'w' ? v.black : v.white) : null;
   let status;
-  const oppColor = v.you === 'w' ? 'b' : 'w';
-  const oppSide = v.you ? (oppColor === 'w' ? v.white : v.black) : null;
   if (v.over) {
     const win = v.result === '1-0' ? 'Vince il Bianco' : v.result === '0-1' ? 'Vince il Nero' : 'Patta';
     status = `<b>Partita finita.</b> ${win} (${v.reasonIt}).`;
@@ -155,15 +393,20 @@ function render() {
     status = 'In attesa che il tuo amico apra il link di invito…';
   } else if (v.you && v.turn === v.you) {
     status = `<b>Tocca a te.</b>${v.check ? ' Sei sotto scacco!' : ''}`;
-  } else if (v.you) {
-    status = oppSide.kind === 'llm' ? `In attesa della mossa di ${escapeHtml(who(v.turn))} (LLM)…` : `Tocca a ${escapeHtml(who(v.turn))}…`;
+  } else if (v.you && v.llm?.turn) {
+    status = v.llm.mode === 'auto' && !v.llm.error
+      ? `${escapeHtml(who(v.turn))} sta pensando…`
+      : `Tocca all'LLM: inserisci la sua mossa qui sotto.`;
     if (v.check) status += ' Scacco!';
+  } else if (v.you) {
+    status = `Tocca a ${escapeHtml(who(v.turn))}…${v.check ? ' Scacco!' : ''}`;
   } else {
     status = `Stai guardando la partita. Tocca a ${escapeHtml(who(v.turn))}.`;
   }
   $('status').innerHTML = status;
   document.title = (!v.over && v.you && v.turn === v.you ? '● Tocca a te · ' : '') + 'ChatMate';
   $('drawBar').hidden = !(v.drawOffer && v.you && v.drawOffer !== v.you && !v.over);
+
   // mosse
   const ol = $('moves'); ol.innerHTML = '';
   for (let i = 0; i < v.moves.length; i += 2) {
@@ -177,33 +420,86 @@ function render() {
     ol.append(li);
   }
   ol.scrollTop = ol.scrollHeight;
-  // pannelli
+
+  // invito
   const freeHuman = [v.white, v.black].some((p) => p.kind === 'human' && !p.joined);
   $('inviteCard').hidden = !(v.you && freeHuman);
   $('inviteUrl').value = `${location.origin}/?g=${v.id}`;
-  $('llmCard').hidden = !(S.llmToken && !v.over);
+
+  // LLM
+  const L = v.llm;
+  const player = !!v.you && L && v.you !== L.color;
+  $('llmAuto').hidden = !(L && L.mode === 'auto');
+  if (L && L.mode === 'auto') {
+    $('llmModel').textContent = L.model;
+    $('llmState').textContent = v.over ? '' : L.thinking ? 'Sta pensando alla mossa…' : L.turn && !L.error ? 'Sta per muovere…' : L.turn ? '' : 'In attesa della tua mossa.';
+    $('llmState').classList.toggle('busy', !!L.thinking);
+    $('llmErrBox').hidden = !(L.error && L.turn && !v.over);
+    $('llmErrText').textContent = L.error || '';
+    $('llmRetry').hidden = !player;
+    $('llmReplyBox').hidden = !L.lastReply;
+    $('llmReply').textContent = L.lastReply || '';
+  }
+  // Copia e incolla: modalità manuale, oppure ripiego quando la modalità automatica ha dato errore
+  const showManual = player && L.turn && !v.over && (L.mode === 'manual' || !!L.error);
+  $('llmManual').hidden = !showManual;
+  if (showManual) {
+    const key = `${v.id}:${v.version}`;
+    if (S.promptFor !== key) {
+      S.promptFor = key;
+      $('promptText').value = L.prompt || '';
+      const sel = $('llmSelect');
+      sel.replaceChildren(new Option('Elenco…', ''), ...L.legal.map((m) => new Option(m, m)));
+    }
+  }
+  $('llmApiCard').hidden = !(S.llmToken && L && !v.over && L.mode === 'manual');
   $('llmUrl').value = `${location.origin}/api/llm?game=${v.id}&token=${S.llmToken}`;
+
   $('actions').hidden = !v.you;
   $('offerDraw').disabled = $('resign').disabled = v.over;
   $('offerDraw').textContent = v.drawOffer === v.you ? 'Patta proposta' : 'Proponi patta';
 }
-
-const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 async function send(action, extra = {}) {
   $('gameErr').textContent = '';
   try {
     const r = await api('/api/game', { method: 'POST', body: JSON.stringify({ id: S.id, token: S.token, action, ...extra }) });
     setView(r.view);
-  } catch (e) { $('gameErr').textContent = e.message; }
+    return true;
+  } catch (e) { $('gameErr').textContent = e.message; return false; }
 }
 
 function setView(v) {
   if (!v) return;
   if (S.view && v.version < S.view.version) return;
+  if (v.ownerTokens && v.ownerTokens.token !== S.token) {
+    // Proprietario della partita su un nuovo dispositivo: recupera i token dal server
+    S.token = v.ownerTokens.token; S.llmToken = v.ownerTokens.llmToken;
+    store.set(v.id, { token: S.token, llmToken: S.llmToken, color: v.you, opponent: 'llm', created: Date.now() });
+  }
   S.view = v;
   if (S.sel && !v.legal.some((m) => m.from === S.sel)) S.sel = null;
   render();
+  maybeKickLlm();
+}
+
+// In modalità automatica, quando tocca all'LLM, chiede al server di farlo giocare.
+async function maybeKickLlm(force = false) {
+  const v = S.view, L = v?.llm;
+  if (!L || L.mode !== 'auto' || !L.turn || v.over || !v.you || v.you === L.color) return;
+  if (!force && (L.thinking || L.error)) return;
+  if (S.llmKick) return;
+  S.llmKick = true;
+  try {
+    const r = await api('/api/llm-turn', { method: 'POST', body: JSON.stringify({ id: S.id }) });
+    if (r.status !== 'busy') await refresh();
+  } catch (e) { $('gameErr').textContent = e.message; }
+  finally { S.llmKick = false; }
+}
+
+async function refresh() {
+  const nv = await api(`/api/game?id=${S.id}&token=${encodeURIComponent(S.token || '')}`);
+  setView(nv);
 }
 
 function tryPlay(from, to) {
@@ -216,7 +512,6 @@ function tryPlay(from, to) {
 }
 
 function playMove(m) {
-  // aggiornamento ottimistico: ridisegna senza mosse legali finché il server non risponde
   S.view = { ...S.view, legal: [] };
   render();
   send('move', { move: m.uci });
@@ -234,7 +529,6 @@ function showPromo(cands) {
   box.onclick = (e) => { if (e.target === box) { box.hidden = true; render(); } };
 }
 
-// Clic e trascinamento
 function sqAt(x, y) { const el = document.elementFromPoint(x, y); return el?.closest?.('.sq')?.dataset.sq || null; }
 function initBoardInput() {
   const board = $('board');
@@ -243,8 +537,7 @@ function initBoardInput() {
     if (S.sel && S.sel !== sq && tryPlay(S.sel, sq)) return;
     if (S.view.legal.some((m) => m.from === sq)) {
       S.sel = sq;
-      const pos = parsePlacement(S.view.fen);
-      const ghost = pieceEl(pos[sq]); ghost.classList.add('drag');
+      const ghost = pieceEl(parsePlacement(S.view.fen)[sq]); ghost.classList.add('drag');
       ghost.style.left = e.clientX + 'px'; ghost.style.top = e.clientY + 'px';
       S.drag = { from: sq, el: ghost, moved: false, x: e.clientX, y: e.clientY };
       render(); document.body.append(ghost);
@@ -260,7 +553,7 @@ function initBoardInput() {
     if (!S.drag) return;
     const d = S.drag; S.drag = null; d.el.remove();
     const to = sqAt(e.clientX, e.clientY);
-    if (d.moved && to && to !== d.from) { if (!tryPlay(d.from, to)) { S.sel = null; } }
+    if (d.moved && to && to !== d.from && !tryPlay(d.from, to)) S.sel = null;
     render();
   };
   board.addEventListener('pointerup', end);
@@ -274,8 +567,9 @@ async function poll() {
       const q = `id=${S.id}&token=${encodeURIComponent(S.token || '')}` + (v ? `&since=${v.version}&wait=20` : '');
       const nv = await api(`/api/game?${q}`);
       if (!S.view || nv.version !== S.view.version) setView(nv);
-      if (nv.over && !document.hidden) await new Promise((r) => setTimeout(r, 15000));
-    } catch (e) { await new Promise((r) => setTimeout(r, 3000)); }
+      else maybeKickLlm(); // ad es. il "sta pensando" è scaduto senza risposta
+      if (nv.over) await sleep(15000);
+    } catch { await sleep(3000); }
   }
 }
 
@@ -287,9 +581,9 @@ async function initGame(id) {
   S.llmToken = saved?.llmToken || null;
   try {
     if (!S.token) {
-      // Primo accesso da un link di invito: prova a prendere il posto libero.
+      // Primo accesso da questo browser: se sei il proprietario arrivano i tuoi token, altrimenti prendi il posto libero.
       const r = await api('/api/game', { method: 'POST', body: JSON.stringify({ id, action: 'join', name: store.name() || null }) });
-      if (r.token) {
+      if (r.token && !r.view.ownerTokens) {
         S.token = r.token;
         store.set(id, { token: r.token, color: r.view.you, opponent: 'human', created: Date.now() });
         toast(`Sei entrato con il ${r.view.you === 'w' ? 'Bianco' : 'Nero'}`);
@@ -299,40 +593,39 @@ async function initGame(id) {
   } catch (e) { $('status').textContent = e.message; return; }
   initBoardInput();
   $('flip').onclick = () => { S.flipped = !S.flipped; render(); };
-  $('resign').onclick = () => { if (confirmInline($('resign'), 'Sicuro? Clicca di nuovo')) send('resign'); };
+  $('resign').onclick = () => { if (confirmInline($('resign'), 'Sicuro? Clicca di nuovo', 'Abbandona')) send('resign'); };
   $('offerDraw').onclick = () => send('offer_draw');
   $('acceptDraw').onclick = () => send('accept_draw');
   $('declineDraw').onclick = () => send('decline_draw');
   document.querySelectorAll('[data-copy]').forEach((b) => (b.onclick = () => copy($(b.dataset.copy).value)));
-  $('copyPrompt').onclick = async () => {
-    try {
-      const r = await fetch(`/api/llm?game=${S.id}&token=${S.llmToken}`);
-      await copy(await r.text());
-    } catch { toast('Impossibile ottenere il prompt'); }
-  };
+  $('copyPrompt').onclick = () => copy($('promptText').value);
+  $('llmSelect').onchange = () => { if ($('llmSelect').value) $('llmAnswer').value = $('llmSelect').value; };
+  $('llmAnswer').onkeydown = (e) => { if (e.key === 'Enter') $('sendAnswer').click(); };
   $('sendAnswer').onclick = async () => {
-    const ans = $('llmAnswer').value.trim(); if (!ans) return;
-    $('gameErr').textContent = '';
-    try {
-      const r = await fetch(`/api/llm?game=${S.id}&token=${S.llmToken}&format=json`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ move: ans }),
-      });
-      const d = await r.json();
-      if (d.status === 'error') $('gameErr').textContent = d.error || d.text.split('\n')[0];
-      else { $('llmAnswer').value = ''; toast(d.notice || 'Mossa inviata'); }
-      const v = await api(`/api/game?id=${S.id}&token=${encodeURIComponent(S.token || '')}`); setView(v);
-    } catch (e) { $('gameErr').textContent = e.message; }
+    const ans = $('llmAnswer').value.trim() || $('llmSelect').value; if (!ans) return;
+    $('sendAnswer').disabled = true;
+    if (await send('llm_move', { move: ans })) { $('llmAnswer').value = ''; toast(`L'LLM ha giocato ${S.view.moves.at(-1)}`); }
+    $('sendAnswer').disabled = false;
   };
+  $('llmRetry').onclick = () => maybeKickLlm(true);
   poll();
 }
 
 // conferma "clicca due volte" (niente finestre di dialogo del browser)
-function confirmInline(btn, msg) {
-  if (btn.dataset.armed) { delete btn.dataset.armed; btn.textContent = 'Abbandona'; return true; }
-  btn.dataset.armed = '1'; btn.textContent = msg;
-  setTimeout(() => { delete btn.dataset.armed; btn.textContent = 'Abbandona'; }, 3000);
+function confirmInline(btn, ask, label) {
+  if (btn.dataset.armed) { delete btn.dataset.armed; btn.textContent = label; return true; }
+  btn.dataset.armed = '1'; btn.textContent = ask;
+  setTimeout(() => { delete btn.dataset.armed; btn.textContent = label; }, 3000);
   return false;
 }
 
-const gid = new URLSearchParams(location.search).get('g');
-if (gid) initGame(gid); else initLobby();
+// ---------- avvio ----------
+const hashType = consumeAuthHash();
+renderNav();
+$('navLogout').onclick = async () => { await auth.signOut(); location.href = '/'; };
+const qs = new URLSearchParams(location.search);
+if (hashType === 'recovery') initAuth(true);
+else if (qs.get('g')) initGame(qs.get('g'));
+else if (qs.get('p') === 'login') initAuth();
+else if (qs.get('p') === 'account' || hashType === 'signup') initAccount();
+else initLobby();
