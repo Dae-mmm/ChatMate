@@ -374,8 +374,23 @@ async function initLobby() {
   if (auth.session) acc = await loadMe();
   $('name').value = store.name() || (acc?.email ? acc.email.split('@')[0] : '');
   let picker = null;
+  const canTwitch = acc && (acc.role === 'streamer' || acc.role === 'admin');
+  $('optTwitch').hidden = !canTwitch;
   const updateLlmUi = async () => {
-    const vsLlm = segValue('opponent') === 'llm';
+    const opp = segValue('opponent');
+    const vsLlm = opp === 'llm', twitch = opp === 'twitch';
+    $('twitchOptions').hidden = !twitch;
+    $('colorLabel').textContent = twitch ? 'Colore della chat' : 'Il tuo colore';
+    if (twitch) {
+      $('llmOptions').hidden = false;
+      $('modeField').hidden = true;
+      $('modelField').hidden = !acc?.hasKey;
+      if (acc?.hasKey && !picker) picker = await modelPicker($('lobbyModelPick'), acc.defaultModel);
+      $('llmHint').innerHTML = acc?.hasKey
+        ? 'La chat del canale vota le mosse, il modello scelto risponde da solo usando il tuo credito OpenRouter.'
+        : 'Per la modalità Twitch serve una chiave OpenRouter: <a href="/?p=account">collegala dal tuo account</a>.';
+      return;
+    }
     $('llmOptions').hidden = !vsLlm;
     if (!vsLlm) return;
     const canAuto = !!acc?.hasKey;
@@ -399,6 +414,15 @@ async function initLobby() {
     try {
       const name = $('name').value.trim(); store.setName(name);
       const opponent = segValue('opponent');
+      if (opponent === 'twitch') {
+        const r = await api('/api/games', { method: 'POST', body: JSON.stringify({
+          opponent, color: segValue('color'), model: picker ? picker.value() : null,
+          channel: $('twChannel').value, voteSeconds: $('twVote').value, graceSeconds: $('twGrace').value,
+        }) });
+        store.set(r.id, { token: r.token, llmToken: r.llmToken, color: r.color, opponent: 'twitch', created: Date.now() });
+        location.href = `/?g=${r.id}`;
+        return;
+      }
       const auto = opponent === 'llm' && acc?.hasKey && segValue('mode') === 'auto';
       const model = auto && picker ? picker.value() : null;
       if (auto && !model) throw new Error('Scegli un modello.');
@@ -419,7 +443,7 @@ async function initLobby() {
 }
 
 // ---------- partita ----------
-const S = { id: null, token: null, llmToken: null, view: null, flipped: false, sel: null, drag: null, llmKick: false, promptFor: null };
+const S = { id: null, token: null, llmToken: null, liveKey: null, view: null, flipped: false, sel: null, drag: null, llmKick: false, promptFor: null };
 
 function parsePlacement(fen) {
   const board = {};
@@ -502,6 +526,8 @@ function render() {
     status = `<b>Partita finita.</b> ${win} (${v.reasonIt}).`;
   } else if (v.you && oppSide && !oppSide.joined) {
     status = 'In attesa che il tuo amico apra il link di invito…';
+  } else if (v.mode === 'twitch' && v.you && v.turn === v.you) {
+    status = `<b>Tocca alla chat:</b> votazione in corso.${v.check ? ' Scacco!' : ''}`;
   } else if (v.you && v.turn === v.you) {
     status = `<b>Tocca a te.</b>${v.check ? ' Sei sotto scacco!' : ''}`;
   } else if (v.you && v.llm?.turn) {
@@ -515,7 +541,7 @@ function render() {
     status = `Stai guardando la partita. Tocca a ${escapeHtml(who(v.turn))}.`;
   }
   $('status').innerHTML = status;
-  document.title = (!v.over && v.you && v.turn === v.you ? '● Tocca a te · ' : '') + 'ChatMate';
+  document.title = (!v.over && v.you && v.turn === v.you && v.mode !== 'twitch' ? '● Tocca a te · ' : '') + 'ChatMate';
   $('drawBar').hidden = !(v.drawOffer && v.you && v.drawOffer !== v.you && !v.over);
 
   // mosse
@@ -543,7 +569,7 @@ function render() {
   $('llmAuto').hidden = !(L && L.mode === 'auto');
   if (L && L.mode === 'auto') {
     $('llmModel').textContent = L.model;
-    $('llmState').textContent = v.over ? '' : L.thinking ? 'Sta pensando alla mossa…' : L.turn && !L.error ? 'Sta per muovere…' : L.turn ? '' : 'In attesa della tua mossa.';
+    $('llmState').textContent = v.over ? '' : L.thinking ? 'Sta pensando alla mossa…' : L.turn && !L.error ? 'Sta per muovere…' : L.turn ? '' : v.mode === 'twitch' ? 'In attesa della mossa della chat.' : 'In attesa della tua mossa.';
     $('llmState').classList.toggle('busy', !!L.thinking);
     $('llmErrBox').hidden = !(L.error && L.turn && !v.over);
     $('llmErrText').textContent = L.error || '';
@@ -567,7 +593,10 @@ function render() {
   $('llmUrl').value = `${location.origin}/api/llm?game=${v.id}&token=${S.llmToken}`;
 
   $('actions').hidden = !v.you;
+  $('offerDraw').hidden = v.mode === 'twitch';
   $('offerDraw').disabled = $('resign').disabled = v.over;
+  $('liveCard').hidden = !(v.mode === 'twitch' && v.ownerTokens?.liveKey);
+  if (!$('liveCard').hidden && !S.liveKey) startLivePanel(v);
   $('offerDraw').textContent = v.drawOffer === v.you ? 'Patta proposta' : 'Proponi patta';
 }
 
@@ -723,6 +752,68 @@ async function initGame(id) {
   };
   $('llmRetry').onclick = () => maybeKickLlm(true);
   poll();
+}
+
+// ---------- pannello live Twitch (solo lo streamer proprietario) ----------
+const LIVE_PHASE = { voting: 'Votazione', counting: 'Conteggio voti (cuscinetto)', closing: 'Conteggio voti', idle: 'Apertura turno', llm: 'Tocca all\'LLM', over: 'Partita finita' };
+
+function startLivePanel(v) {
+  S.liveKey = v.ownerTokens.liveKey;
+  const url = (transparent) => `${location.origin}/overlay.html?key=${S.liveKey}${transparent ? '&bg=transparent' : ''}`;
+  $('overlayUrl').value = url(false);
+  $('overlayTransparent').onchange = () => { $('overlayUrl').value = url($('overlayTransparent').checked); };
+  $('liveChannel').textContent = `#${v.twitch.channel}`;
+  $('setChannel').value = v.twitch.channel; $('setVote').value = v.twitch.voteSeconds; $('setGrace').value = v.twitch.graceSeconds;
+  const live = (body) => api('/api/live', { method: 'POST', body: JSON.stringify({ key: S.liveKey, ...body }) });
+  $('saveLive').onclick = async () => {
+    try {
+      const r = await live({ action: 'settings', channel: $('setChannel').value, voteSeconds: $('setVote').value, graceSeconds: $('setGrace').value });
+      $('liveChannel').textContent = `#${r.channel}`; toast('Impostazioni salvate');
+    } catch (e) { $('gameErr').textContent = e.message; }
+  };
+  $('sendTest').onclick = async () => {
+    try {
+      const r = await live({ action: 'votes', votes: [{ voter: `test:${$('testVoter').value.trim() || 'test'}`, move: $('testMove').value.trim() }] });
+      toast(r.accepted ? 'Voto registrato' : r.reason || 'Voto non valido: serve una mossa legale scritta esattamente');
+    } catch (e) { $('gameErr').textContent = e.message; }
+  };
+  $('newLiveGame').onclick = async () => {
+    if (!confirmInline($('newLiveGame'), 'Sicuro? Clicca di nuovo', 'Nuova partita con le stesse impostazioni')) return;
+    try {
+      const cur = S.view;
+      const r = await api('/api/games', { method: 'POST', body: JSON.stringify({
+        opponent: 'twitch', color: cur.you, model: cur.llm?.model, channel: $('setChannel').value,
+        voteSeconds: $('setVote').value, graceSeconds: $('setGrace').value,
+      }) });
+      store.set(r.id, { token: r.token, llmToken: r.llmToken, color: r.color, opponent: 'twitch', created: Date.now() });
+      location.href = `/?g=${r.id}`;
+    } catch (e) { $('gameErr').textContent = e.message; }
+  };
+  liveLoop(live);
+}
+
+// Segue la live e, se l'overlay non è aperto, fa avanzare i turni al posto suo.
+async function liveLoop(live) {
+  let ticking = false;
+  for (;;) {
+    try {
+      const r = await fetch(`/api/live?key=${encodeURIComponent(S.liveKey)}`);
+      const lv = await r.json();
+      if (r.ok && lv.gameId === S.id) {
+        const offset = lv.serverNow - Date.now();
+        const left = lv.endsAt ? Math.max(0, Math.ceil((lv.endsAt - Date.now() - offset) / 1000)) : null;
+        const top = lv.moves.filter((m) => m.votes).slice(0, 8);
+        $('liveState').innerHTML =
+          `<b>${LIVE_PHASE[lv.phase] || lv.phase}</b>${lv.tieBreak ? ' · spareggio' : ''}${left != null && lv.phase === 'voting' ? ` · ${left}s` : ''} · turno ${lv.round} · ${lv.totalVotes} voti` +
+          (top.length ? `<div class="tally">${top.map((m) => `<span>${m.san} ${m.votes}</span>`).join('')}</div>` : '');
+        const due = lv.phase === 'idle' || lv.phase === 'closing';
+        if (due && !ticking) { ticking = true; try { await live({ action: 'tick' }); } catch {} ticking = false; }
+      } else if (r.ok) {
+        $('liveState').innerHTML = '<b>Questa non è più la partita mostrata nell\'overlay</b>: ne hai creata una più recente.';
+      }
+    } catch {}
+    await sleep(1000);
+  }
 }
 
 // conferma "clicca due volte" (niente finestre di dialogo del browser)

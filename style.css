@@ -151,3 +151,13 @@ select, textarea { font: inherit; color: var(--text); background: var(--panel2);
 .pager { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 10px; font-size: 13px; color: var(--muted); }
 .purge { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
 .purge input { width: 70px; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; color: var(--text); }
+
+/* Live Twitch */
+.twoCols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.liveState { font-size: 14px; margin-bottom: 10px; }
+.liveState .tally { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.liveState .tally span { background: var(--panel2); border: 1px solid var(--line); border-radius: 99px; padding: 2px 10px; font-size: 12px; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin: 8px 0 4px; }
+.mt8 { margin-top: 12px; }
+#liveCard details .field input { width: 100%; }
+.side { min-width: 0; } .side .card { min-width: 0; }

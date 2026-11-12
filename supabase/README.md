@@ -7,6 +7,8 @@ Le migration in `migrations/` vanno applicate **in ordine** (il nome inizia con 
 | `20261112080000_chess_games.sql` | Tabella `games`, tabella `app_config` e funzioni `chess_get/create/update` protette dal segreto del server |
 | `20261112100000_accounts_and_llm.sql` | Account: tabella `profiles` (chiave OpenRouter cifrata, modello predefinito), partite collegate al proprietario, stato del turno dell'LLM |
 | `20261112120000_roles_and_admin.sql` | Livelli degli account (`user`, `streamer`, `admin`) e funzioni del pannello admin (ricerca account, cambio livello, elenco ed eliminazione partite) |
+| `20261112130000_twitch_live.sql` | Modalità Twitch: canale e tempi del turno sulle partite, tabella `votes` (un voto per spettatore per turno), conteggio e spareggi |
+| `20261112140000_live_key.sql` | Chiave dell'overlay per streamer: l'indirizzo in OBS resta fisso e mostra l'ultima partita Twitch |
 
 Ogni nuova modifica al database va aggiunta qui come nuovo file, mai modificando quelli esistenti.
 

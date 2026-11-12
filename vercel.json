@@ -6,6 +6,7 @@
     "api/games.js": { "maxDuration": 30 },
     "api/llm.js": { "maxDuration": 60 },
     "api/llm-turn.js": { "maxDuration": 300 },
-    "api/models.js": { "maxDuration": 30 }
+    "api/models.js": { "maxDuration": 30 },
+    "api/live.js": { "maxDuration": 30 }
   }
 }

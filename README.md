@@ -23,6 +23,10 @@ api/config.js                   configurazione pubblica per il login nel browser
 api/account.js                  profilo, chiave OpenRouter, modello predefinito, partite
 api/models.js                   lista curata dei modelli con stima dei costi
 api/admin.js                    pannello admin: account, livelli, partite
+api/live.js                     modalità Twitch: stato della live, voti, avanzamento dei turni
+lib/live.js                     turni di voto, cuscinetto, spareggi, mossa più votata
+lib/vote.js                     riconoscimento dei voti in chat (condiviso con l'overlay)
+overlay.html, overlay.js, .css  overlay 16:9 per OBS (legge la chat Twitch e mostra i voti)
 api/games.js                    POST: crea una partita
 api/game.js                     GET stato / POST azioni dei giocatori
 api/llm-turn.js                 fa giocare l'LLM via OpenRouter
@@ -44,6 +48,16 @@ La lista dei modelli mostra una stima per mossa e per partita, calcolata dai pre
 - ~150 token in uscita per i modelli normali, ~2.000 per quelli con ragionamento;
 - +10% per i tentativi dopo una mossa non valida;
 - 45-60 mosse dell'LLM per partita.
+
+## Modalità Twitch
+
+Riservata agli account **streamer** e **admin**, con una chiave OpenRouter collegata. La chat di un canale Twitch gioca contro un LLM votando le mosse.
+
+- **Come si vota**: in chat si scrive solo la mossa, esattamente in notazione inglese (`Nf6`, `exd5`, `O-O`). Le maiuscole contano (`Bxc3` è l'alfiere, `bxc3` il pedone). Sono tollerati `+`/`#` finali, `0-0` e la promozione senza `=` (`e8Q`). Ogni spettatore ha un voto per turno e vale l'ultimo che scrive.
+- **Turno**: timer di voto (10-300 s, predefinito 30) e poi un cuscinetto (0-20 s, predefinito 4) per i voti in ritardo dovuti alla latenza dello stream.
+- **Chiusura del turno**: se non ci sono voti il timer riparte. Se in testa c'è una parità, si fa uno spareggio solo tra le mosse a pari merito. Altrimenti si gioca la mossa più votata e risponde l'LLM.
+- **Overlay**: `overlay.html?key=<chiave>` (con `&bg=transparent` per lo sfondo trasparente) va aggiunto in OBS come Browser Source 1920×1080. L'indirizzo è fisso per lo streamer e mostra sempre la sua ultima partita Twitch. L'overlay legge la chat in sola lettura (IRC anonimo, senza login) e manda i voti al sito, che li ricontrolla.
+- **Pannello dello streamer**: nella pagina della partita trovi il link dell'overlay, le impostazioni, un voto di prova per i test e "Nuova partita".
 
 ## Endpoint per LLM esterni
 

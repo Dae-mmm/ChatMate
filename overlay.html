@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChatMate · overlay</title>
+  <link rel="stylesheet" href="/overlay.css">
+</head>
+<body>
+  <!-- Palco 1920×1080, scalato per riempire la Browser Source di OBS -->
+  <div id="stage" class="stage">
+    <div class="boardBox">
+      <div id="board" class="board"></div>
+      <svg id="arrows" class="arrows" viewBox="0 0 800 800"></svg>
+      <div id="banner" class="banner" hidden></div>
+    </div>
+
+    <div class="panel">
+      <div class="players">
+        <div class="pl" id="plChat"></div>
+        <div class="vs">vs</div>
+        <div class="pl" id="plLlm"></div>
+      </div>
+
+      <div class="phaseBox">
+        <div class="phaseRow">
+          <div id="phase" class="phase">Collegamento…</div>
+          <div id="timer" class="timer"></div>
+        </div>
+        <div class="bar"><div id="barFill" class="barFill"></div></div>
+        <div id="sub" class="sub"></div>
+      </div>
+
+      <div id="top" class="top"></div>
+      <div id="rest" class="rest"></div>
+      <div id="hist" class="hist" hidden></div>
+
+      <div class="foot">
+        <div class="how">Scrivi in chat <b>solo la mossa</b> in notazione inglese, es. <code>Nf6</code> · <code>exd5</code> · <code>O-O</code></div>
+        <div class="legend">K re · Q donna · R torre · B alfiere · N cavallo · pedone senza lettera</div>
+        <div class="meta"><span id="votes"></span><span id="chatState" class="chatState"></span></div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/overlay.js"></script>
+</body>
+</html>

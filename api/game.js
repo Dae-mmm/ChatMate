@@ -63,6 +63,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ san, view: publicView(updated, token, user) });
     }
 
+    if (row.mode === 'twitch' && action === 'move') return res.status(400).json({ error: 'In una live le mosse le decide la chat.' });
     const { row: updated, san } = await act(row.id, color, action, body.move);
     return res.status(200).json({ san, view: publicView(updated, token, user) });
   } catch (e) {

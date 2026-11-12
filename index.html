@@ -141,6 +141,7 @@
         <div class="seg" id="opponent">
           <button data-v="llm" class="on">Un LLM</button>
           <button data-v="human">Un amico</button>
+          <button data-v="twitch" id="optTwitch" hidden>Chat Twitch vs LLM</button>
         </div>
       </div>
 
@@ -157,7 +158,22 @@
         <p class="hint" id="llmHint"></p>
       </div>
 
-      <div class="field">Il tuo colore
+      <div id="twitchOptions" hidden>
+        <label class="field">Canale Twitch
+          <input id="twChannel" maxlength="40" placeholder="ilmiocanale" autocomplete="off">
+        </label>
+        <div class="twoCols">
+          <label class="field">Secondi per votare
+            <input id="twVote" type="number" min="10" max="300" value="30">
+          </label>
+          <label class="field">Cuscinetto (secondi)
+            <input id="twGrace" type="number" min="0" max="20" value="4">
+          </label>
+        </div>
+        <p class="hint">Il cuscinetto raccoglie i voti arrivati in ritardo per la latenza dello stream: 3-4 secondi con la bassa latenza di Twitch, di più con quella normale.</p>
+      </div>
+
+      <div class="field"><span id="colorLabel">Il tuo colore</span>
         <div class="seg" id="color">
           <button data-v="w">Bianco</button>
           <button data-v="random" class="on">Casuale</button>
@@ -201,6 +217,31 @@
         <h3>Invita un amico</h3>
         <p class="hint">Mandagli questo link: chi lo apre per primo prende il posto libero.</p>
         <div class="copyRow"><input id="inviteUrl" readonly><button class="small" data-copy="inviteUrl">Copia</button></div>
+      </div>
+
+      <!-- Live Twitch: pannello dello streamer -->
+      <div class="card" id="liveCard" hidden>
+        <h3>Live Twitch · <span id="liveChannel"></span></h3>
+        <div id="liveState" class="liveState"></div>
+        <p class="hint">Aggiungi in OBS una <b>Browser Source</b> 1920×1080 con questo indirizzo. È sempre lo stesso: mostra da sola l'ultima partita Twitch che crei.</p>
+        <div class="copyRow"><input id="overlayUrl" readonly><button class="small" data-copy="overlayUrl">Copia</button></div>
+        <label class="check"><input type="checkbox" id="overlayTransparent"> Sfondo trasparente</label>
+        <details>
+          <summary>Impostazioni</summary>
+          <label class="field">Canale<input id="setChannel" maxlength="40"></label>
+          <div class="twoCols">
+            <label class="field">Secondi per votare<input id="setVote" type="number" min="10" max="300"></label>
+            <label class="field">Cuscinetto<input id="setGrace" type="number" min="0" max="20"></label>
+          </div>
+          <button id="saveLive" class="small primary">Salva</button>
+          <p class="hint">Valgono dal prossimo turno di voto.</p>
+        </details>
+        <details>
+          <summary>Voto di prova</summary>
+          <p class="hint">Simula un messaggio in chat, per provare l'overlay senza essere in live.</p>
+          <div class="copyRow"><input id="testVoter" placeholder="spettatore" value="test1"><input id="testMove" placeholder="Nf6"><button id="sendTest" class="small">Vota</button></div>
+        </details>
+        <button id="newLiveGame" class="small mt8">Nuova partita con le stesse impostazioni</button>
       </div>
 
       <!-- LLM: modalità automatica -->
