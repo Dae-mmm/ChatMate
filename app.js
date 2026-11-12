@@ -129,6 +129,7 @@ const loadModels = () => (modelsPromise ||= fetch('/api/models').then((r) => r.j
 
 // Importi piccoli: due cifre significative (0,0012 $), importi normali con due decimali.
 const usd = (x) => (x === 0 ? 'gratis' : x < 0.01 ? `$${x.toPrecision(2)}` : `$${x.toFixed(2)}`);
+const range = ([a, b]) => (Math.abs(a - b) < 1e-9 ? `~${usd(a)}` : `${usd(a)}–${usd(b)}`);
 
 async function modelPicker(container, initial) {
   container.innerHTML = '';
@@ -146,7 +147,7 @@ async function modelPicker(container, initial) {
     for (const m of g.models) {
       byId[m.id] = m;
       const o = document.createElement('option'); o.value = m.id;
-      o.textContent = m.name + (m.cost ? ` · ${m.cost.perMove === 0 ? 'gratis' : `~${usd(m.cost.perGame[0])}–${usd(m.cost.perGame[1])} a partita`}` : '');
+      o.textContent = m.name + (m.cost ? ` · ${m.cost.perGame[1] === 0 ? 'gratis' : `${range(m.cost.perGame)} a partita`}` : '');
       if (m.id === initial) { o.selected = true; found = true; }
       og.append(o);
     }
@@ -160,10 +161,10 @@ async function modelPicker(container, initial) {
     const m = byId[sel.value];
     if (!m || !m.cost) { info.textContent = sel.value === '__custom' ? 'Costo non stimato per i modelli scritti a mano.' : ''; return; }
     const c = m.cost, [a, b] = estimate.movesPerGame;
-    info.textContent = c.perMove === 0
+    info.textContent = c.perGame[1] === 0
       ? 'Modello gratuito (con limiti di utilizzo di OpenRouter).'
-      : `Stima: ~${usd(c.perMove)} a mossa · ${usd(c.perGame[0])}–${usd(c.perGame[1])} a partita (${a}–${b} mosse dell'LLM).` +
-        (c.reasoning ? ' Modello con ragionamento: il costo reale può variare molto, anche di parecchio in più.' : '');
+      : `Stima: ${range(c.perMove)} a mossa · ${range(c.perGame)} a partita (${a}–${b} mosse dell'LLM).` +
+        (c.reasoning ? ' Modello con ragionamento: il minimo è una risposta breve, il massimo un ragionamento lungo a ogni mossa.' : '');
   };
   sel.onchange = () => { custom.hidden = sel.value !== '__custom'; if (!custom.hidden) custom.focus(); showInfo(); };
   showInfo();
