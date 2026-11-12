@@ -1,4 +1,5 @@
 // GET /api/models  lista curata dei modelli OpenRouter (i più recenti per ogni casa + gratuiti).
+import { msg, langOf, AppError, sendError } from '../lib/messages.js';
 import { curatedModels, ESTIMATE } from '../lib/openrouter.js';
 
 export default async function handler(req, res) {
@@ -7,6 +8,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ groups: await curatedModels(), estimate: ESTIMATE });
   } catch (e) {
     console.error(e);
-    return res.status(502).json({ groups: [], error: 'Catalogo OpenRouter non disponibile, puoi scrivere l\'ID del modello a mano.' });
+    return res.status(502).json({ groups: [], error: msg(langOf(req), 'models_unavailable'), code: 'models_unavailable' });
   }
 }

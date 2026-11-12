@@ -1,15 +1,21 @@
 // Overlay per OBS: mostra la live, legge la chat Twitch (in sola lettura, senza login) e invia i voti.
 import { normalizeVote } from '/lib/vote.js';
+import { t, useLang, detectLang } from '/i18n.js';
 
 const $ = (id) => document.getElementById(id);
 const qs = new URLSearchParams(location.search);
 const KEY = qs.get('key') || '';
 if (qs.get('bg') === 'transparent') document.body.classList.add('transparent');
+useLang(qs.get('lang') || detectLang());
+document.documentElement.lang = qs.get('lang') || detectLang();
+$('phase').textContent = t('ov.connecting');
 
 const COLORS = ['#E8613C', '#1FB386', '#8B7FE8', '#F2A93B', '#4C9BE8'];
 const GLYPH = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' };
 const TEXT = '︎';
-const PHASE_LABEL = { voting: 'Vota la mossa in chat!', counting: 'Conteggio voti…', closing: 'Conteggio voti…', idle: 'Si prepara il turno…' };
+const PHASE_LABEL = { voting: 'ov.voting', counting: 'ov.counting', closing: 'ov.counting', idle: 'ov.idle' };
+const votesText = (n) => (n === 1 ? t('ov.vote1') : t('ov.voteN', { n }));
+const reasonText = (r) => (r ? t(`reason.${r}`) : '');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const S = { live: null, offset: 0, ticking: false, llmKick: false, queue: new Map(), channel: null, ws: null, chatOk: false, bannerFor: null };
@@ -39,12 +45,12 @@ function setLive(v) {
 }
 
 async function loop() {
-  if (!KEY) { $('phase').textContent = 'Manca la chiave overlay nell\'indirizzo'; return; }
+  if (!KEY) { $('phase').textContent = t('ov.noKey'); return; }
   for (;;) {
     try {
       const r = await fetch(`/api/live?key=${encodeURIComponent(KEY)}`);
       const v = await r.json();
-      if (!r.ok) { $('phase').textContent = v.error || 'Errore'; await sleep(5000); continue; }
+      if (!r.ok) { $('phase').textContent = v.error || 'Error'; await sleep(5000); continue; }
       setLive(v);
       await drive();
     } catch { /* rete assente: riprova */ }
@@ -182,6 +188,8 @@ function renderArrows(top, total, pov) {
   });
 }
 
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 function playerEl(el, side, color, turn, kind) {
   el.innerHTML = '';
   el.classList.toggle('turn', turn);
@@ -190,7 +198,7 @@ function playerEl(el, side, color, turn, kind) {
   el.insertAdjacentHTML('beforeend', `<span class="tag">${kind}</span>`);
 }
 
-const RESULT = { '1-0': 'Vince il Bianco', '0-1': 'Vince il Nero', '1/2-1/2': 'Patta' };
+const resultText = (r) => ({ '1-0': t('game.whiteWins'), '0-1': t('game.blackWins'), '1/2-1/2': t('game.draw') }[r] || t('live.phase.over'));
 
 function render() {
   const v = S.live, g = v.game;
@@ -198,7 +206,7 @@ function render() {
   const llmColor = pov === 'w' ? 'b' : 'w';
   renderBoard(g, pov);
   const chatSide = pov === 'w' ? g.white : g.black, llmSide = pov === 'w' ? g.black : g.white;
-  playerEl($('plChat'), chatSide, pov, !g.over && g.turn === pov, 'chat');
+  playerEl($('plChat'), chatSide, pov, !g.over && g.turn === pov, t('ov.tagChat'));
   playerEl($('plLlm'), llmSide, llmColor, !g.over && g.turn === llmColor, 'LLM');
 
   const voting = ['voting', 'counting', 'closing', 'idle'].includes(v.phase);
@@ -210,8 +218,9 @@ function render() {
   const rest = $('rest'); rest.innerHTML = '';
   rest.hidden = !voting; $('hist').hidden = voting || v.phase === 'next';
   $('how').innerHTML = v.phase === 'next' && v.next.mode === 'vote'
-    ? `Scrivi in chat <b>solo il numero</b> del modello, es. <code>1</code>`
-    : 'Scrivi in chat <b>solo la mossa</b> in notazione inglese, es. <code>Nf6</code> · <code>exd5</code> · <code>O-O</code>';
+    ? t('ov.howModel')
+    : t('ov.howMove');
+  $('legend').textContent = t('ov.legend');
   $('legend').hidden = v.phase === 'next';
   if (v.phase === 'next') renderNext(v, T);
   else if (voting) {
@@ -219,10 +228,10 @@ function render() {
       const pct = v.totalVotes ? Math.round((m.votes / v.totalVotes) * 100) : 0;
       T.insertAdjacentHTML('beforeend', `<div class="row"><span class="chip" style="background:${COLORS[i]}"></span><span class="mv">${m.san}</span><div class="track"><div class="fill" style="width:${pct}%;background:${COLORS[i]}"></div></div><span class="pct">${pct}% <small>· ${m.votes}</small></span></div>`);
     });
-    if (!top.length) T.insertAdjacentHTML('beforeend', '<div class="row hint">Nessun voto ancora: scrivi la tua mossa in chat!</div>');
+    if (!top.length) T.insertAdjacentHTML('beforeend', `<div class="row hint">${t('ov.noVotes')}</div>`);
     const others = v.moves.filter((x) => !top.includes(x));
     rest.classList.remove('c4');
-    if (others.length) rest.insertAdjacentHTML('beforeend', `<span class="title">${top.length ? 'Altre mosse possibili' : 'Mosse possibili'}</span>`);
+    if (others.length) rest.insertAdjacentHTML('beforeend', `<span class="title">${top.length ? t('ov.otherMoves') : t('ov.possibleMoves')}</span>`);
     for (const m of others) {
       const s = document.createElement('span'); if (m.votes) s.className = 'has';
       s.innerHTML = `<span>${m.san}</span><span>${m.votes || ''}</span>`;
@@ -238,25 +247,25 @@ function render() {
     }
   }
   const full = Math.ceil(g.moves.length / 2);
-  $('votes').textContent = v.phase === 'next' && v.next.mode === 'vote' ? `${v.next.totalVotes} ${v.next.totalVotes === 1 ? 'voto' : 'voti'}`
-    : voting ? `${v.totalVotes} ${v.totalVotes === 1 ? 'voto' : 'voti'} · turno ${v.round}` : `mossa ${full}`;
+  $('votes').textContent = v.phase === 'next' && v.next.mode === 'vote' ? votesText(v.next.totalVotes)
+    : voting ? t('ov.metaVotes', { votes: votesText(v.totalVotes), n: v.round }) : t('ov.moveN', { n: full });
 
   // fase, sottotitolo e banner sulla scacchiera
-  let phase = PHASE_LABEL[v.phase] || '', sub = '';
-  if (v.tieBreak && voting) { phase = 'Spareggio!'; sub = `Si vota solo tra: <b>${v.moves.map((m) => m.san).join(', ')}</b>`; }
-  else if (v.phase === 'voting') sub = `Tocca alla chat (${pov === 'w' ? 'Bianco' : 'Nero'}). Ogni spettatore ha un voto, vale l'ultimo.`;
-  else if (v.phase === 'counting' || v.phase === 'closing') sub = 'Ancora un attimo: contiamo i voti arrivati con il ritardo dello stream.';
+  let phase = PHASE_LABEL[v.phase] ? t(PHASE_LABEL[v.phase]) : '', sub = '';
+  if (v.tieBreak && voting) { phase = t('ov.tieBreak'); sub = t('ov.tieSub', { list: v.moves.map((m) => m.san).join(', ') }); }
+  else if (v.phase === 'voting') sub = t('ov.votingSub', { color: pov === 'w' ? t('common.white') : t('common.black') });
+  else if (v.phase === 'counting' || v.phase === 'closing') sub = t('ov.countingSub');
   if (v.phase === 'llm') {
-    phase = v.llm.error ? 'L\'LLM ha un problema' : `${llmSide.name} sta pensando…`;
-    sub = v.llm.error ? 'Lo streamer sta intervenendo.' : v.lastChosen ? `La chat ha giocato <b>${v.lastChosen.san}</b> con ${v.lastChosen.votes} ${v.lastChosen.votes === 1 ? 'voto' : 'voti'}.` : '';
+    phase = v.llm.error ? t('ov.llmProblem') : t('ov.llmThinking', { name: llmSide.name });
+    sub = v.llm.error ? t('ov.llmProblemSub') : v.lastChosen ? t('ov.chatPlayed', { move: v.lastChosen.san, votes: votesText(v.lastChosen.votes) }) : '';
   }
-  if (v.phase === 'over') { phase = `${RESULT[g.result] || 'Partita finita'}`; sub = g.reasonIt ? `Per ${g.reasonIt}.` : ''; }
+  if (v.phase === 'over') { phase = resultText(g.result); sub = g.reason ? t('ov.by', { reason: reasonText(g.reason) }) : ''; }
   if (v.phase === 'next') {
-    const n = v.next, nextChat = pov === 'w' ? 'Nero' : 'Bianco';
-    const res = `${RESULT[g.result] || 'Partita finita'}${g.reasonIt ? ` (${g.reasonIt})` : ''}.`;
-    if (n.mode === 'vote') { phase = n.tieBreak ? 'Spareggio!' : 'Scegli il prossimo avversario!'; sub = `${res} Nella prossima la chat gioca col ${nextChat}.`; }
-    else if (n.mode === 'random') { phase = 'Prossima partita'; sub = `${res} Avversario estratto a caso · la chat gioca col ${nextChat}.`; }
-    else { phase = 'Prossima partita'; sub = `${res} Si rigioca contro <b>${n.current}</b> · la chat gioca col ${nextChat}.`; }
+    const n = v.next, color = pov === 'w' ? t('col.black') : t('col.white');
+    const result = `${resultText(g.result)}${g.reason ? ` (${reasonText(g.reason)})` : ''}.`;
+    if (n.mode === 'vote') { phase = n.tieBreak ? t('ov.tieBreak') : t('ov.nextVote'); sub = t('ov.nextVoteSub', { result, color }); }
+    else if (n.mode === 'random') { phase = t('ov.nextTitle'); sub = t('ov.nextRandomSub', { result, color }); }
+    else { phase = t('ov.nextTitle'); sub = t('ov.nextFixedSub', { result, color, name: escapeHtml(n.current) }); }
   }
   $('phase').textContent = phase;
   $('sub').innerHTML = sub;
@@ -266,10 +275,10 @@ function render() {
   if (v.phase === 'llm' && v.lastChosen && S.bannerFor !== bannerKey) {
     S.bannerFor = bannerKey;
     const b = $('banner');
-    b.innerHTML = `La chat gioca ${v.lastChosen.san}<small>${v.lastChosen.votes} ${v.lastChosen.votes === 1 ? 'voto' : 'voti'}</small>`;
+    b.innerHTML = `${t('ov.banner', { move: v.lastChosen.san })}<small>${votesText(v.lastChosen.votes)}</small>`;
     b.hidden = false; clearTimeout(S.bannerT); S.bannerT = setTimeout(() => (b.hidden = true), 2600);
   }
-  if (v.phase === 'over' || v.phase === 'next') { const b = $('banner'); b.innerHTML = `${RESULT[g.result] || 'Fine'}<small>${g.reasonIt || ''}</small>`; b.hidden = false; }
+  if (v.phase === 'over' || v.phase === 'next') { const b = $('banner'); b.innerHTML = `${resultText(g.result)}<small>${reasonText(g.reason)}</small>`; b.hidden = false; }
   else if (v.phase !== 'llm') $('banner').hidden = true;
 }
 
@@ -309,26 +318,26 @@ function fitRest(el) {
 
 function renderChatState() {
   const el = $('chatState');
-  el.textContent = S.chatOk ? `chat #${S.channel}` : S.channel ? `chat #${S.channel} non collegata` : '';
+  el.textContent = S.chatOk ? t('ov.chatOn', { c: S.channel }) : S.channel ? t('ov.chatOff', { c: S.channel }) : '';
   el.classList.toggle('off', !S.chatOk);
 }
 
 // timer fluido, indipendente dal polling
 function frame() {
   const v = S.live;
-  const t = $('timer'), fill = $('barFill');
+  const tm = $('timer'), fill = $('barFill');
   const target = v && (v.phase === 'next' ? v.next.at : ['voting', 'counting', 'closing'].includes(v.phase) ? v.endsAt : null);
   if (target) {
     const left = Math.max(0, target - now());
     const total = v.phase === 'next' ? (v.next.tieBreak ? v.voteSeconds : v.next.seconds) : v.voteSeconds;
     const s = Math.ceil(left / 1000);
-    t.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-    t.classList.toggle('low', s <= 5);
+    tm.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    tm.classList.toggle('low', s <= 5);
     const counting = left <= 0;
     fill.classList.toggle('pulse', counting);
     fill.style.width = counting ? '100%' : `${Math.min(100, (left / (total * 1000)) * 100)}%`;
   } else {
-    t.textContent = ''; fill.classList.remove('pulse'); fill.style.width = '0';
+    tm.textContent = ''; fill.classList.remove('pulse'); fill.style.width = '0';
   }
   requestAnimationFrame(frame);
 }

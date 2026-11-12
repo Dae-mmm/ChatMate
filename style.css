@@ -101,6 +101,8 @@ details { margin-top: 12px; } summary { cursor: pointer; font-size: 13px; color:
 .navLink:hover { color: var(--accent); }
 .linkBtn { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font-size: 13px; text-align: left; }
 .nav .linkBtn { color: var(--text); font-size: 14px; }
+.nav .langSel { width: auto; padding: 4px 6px; font-size: 13px; background: transparent; color: var(--muted); }
+@media (max-width: 560px) { .navUser { display: none; } }
 .stack { display: grid; gap: 4px; margin-top: 18px; }
 .msg { font-size: 13px; min-height: 1em; margin: 10px 0 0; color: var(--danger); }
 .msg.ok { color: #9cc98a; }

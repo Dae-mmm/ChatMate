@@ -1,4 +1,5 @@
 // POST /api/games  { color: "w"|"b"|"random", opponent: "human"|"llm", name?, opponentName?, model? }
+import { msg, langOf, AppError, sendError } from '../lib/messages.js';
 // Crea una partita. Se l'utente è collegato, la partita è sua; contro un LLM, con una chiave OpenRouter
 // salvata e un modello scelto, l'LLM gioca da solo, altrimenti si usa la modalità copia-incolla.
 import { createGame, newId, newToken, getProfile, setProfile, getRole } from '../lib/store.js';
@@ -9,7 +10,7 @@ import { getUser, readBody } from '../lib/auth.js';
 const MODEL_RE = /^[\w.\-]+\/[\w.:\-]+$/;
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Usa POST' });
+  if (req.method !== 'POST') return res.status(405).json({ error: msg(langOf(req), 'method'), code: 'method' });
   try {
     const body = readBody(req);
     const user = await getUser(req);
@@ -55,21 +56,21 @@ export default async function handler(req, res) {
     });
   } catch (e) {
     console.error(e);
-    res.status(500).json({ error: 'Errore del server' });
+    res.status(500).json({ error: msg(langOf(req), 'server'), code: 'server' });
   }
 }
 
 // Partita Twitch: la chat di un canale vota le mosse contro l'LLM. Solo streamer e admin, con chiave OpenRouter.
 async function createTwitchGame(req, res, body, user) {
-  if (!user) return res.status(401).json({ error: 'Accedi per creare una live.' });
+  if (!user) return res.status(401).json({ error: msg(langOf(req), 'login_live'), code: 'login_live' });
   const role = await getRole(user.id);
-  if (role !== 'streamer' && role !== 'admin') return res.status(403).json({ error: 'La modalità Twitch è riservata agli account streamer.' });
+  if (role !== 'streamer' && role !== 'admin') return res.status(403).json({ error: msg(langOf(req), 'twitch_streamer_only'), code: 'twitch_streamer_only' });
   const p = await getProfile(user.id);
-  if (!p?.openrouter_key_enc) return res.status(400).json({ error: 'Per la modalità Twitch serve una chiave OpenRouter collegata al tuo account.' });
+  if (!p?.openrouter_key_enc) return res.status(400).json({ error: msg(langOf(req), 'twitch_needs_key'), code: 'twitch_needs_key' });
   const model = typeof body.model === 'string' && body.model.trim() ? body.model.trim().slice(0, 120) : p.default_model;
-  if (!model || !MODEL_RE.test(model)) return res.status(400).json({ error: 'Scegli il modello che giocherà contro la chat.' });
+  if (!model || !MODEL_RE.test(model)) return res.status(400).json({ error: msg(langOf(req), 'twitch_pick_model'), code: 'twitch_pick_model' });
   const channel = cleanChannel(body.channel);
-  if (!validChannel(channel)) return res.status(400).json({ error: 'Scrivi il nome del canale Twitch (es. ilmiocanale).' });
+  if (!validChannel(channel)) return res.status(400).json({ error: msg(langOf(req), 'channel_required'), code: 'channel_required' });
 
   // Chiave overlay fissa per lo streamer: l'indirizzo in OBS non cambia tra una partita e l'altra
   let liveKey = p.live_key;
@@ -78,7 +79,7 @@ async function createTwitchGame(req, res, body, user) {
   const chat = body.color === 'w' || body.color === 'b' ? body.color : Math.random() < 0.5 ? 'w' : 'b';
   const modelMode = MODEL_MODES.includes(body.modelMode) ? body.modelMode : 'fixed';
   const modelPool = cleanPool(body.modelPool);
-  if (modelMode !== 'fixed' && modelPool.length < 2) return res.status(400).json({ error: 'Per il modello casuale o votato servono almeno 2 modelli in gara.' });
+  if (modelMode !== 'fixed' && modelPool.length < 2) return res.status(400).json({ error: msg(langOf(req), 'pool_min2'), code: 'pool_min2' });
   const { id, token, llmToken } = await createLiveGame({
     ownerId: user.id, liveKey, channel, model, chatColor: chat,
     voteSeconds: clamp(body.voteSeconds, LIMITS.vote), graceSeconds: clamp(body.graceSeconds, LIMITS.grace),

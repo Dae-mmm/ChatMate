@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,14 +8,16 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+  <!-- I testi con data-i18n vengono tradotti da /i18n.js (data-i18n-html: con markup, data-i18n-ph: placeholder) -->
   <header class="top">
     <a href="/" class="brand"><span class="logo">♞</span> ChatMate</a>
     <nav class="nav">
       <span id="navUser" class="navUser" hidden></span>
-      <a href="/?p=admin" id="navAdmin" class="navLink" hidden>Admin</a>
-      <a href="/?p=account" id="navAccount" class="navLink" hidden>Account</a>
-      <button id="navLogout" class="navLink linkBtn" hidden>Esci</button>
-      <a href="/?p=login" id="navLogin" class="navLink" hidden>Accedi</a>
+      <a href="/?p=admin" id="navAdmin" class="navLink" hidden data-i18n="nav.admin">Admin</a>
+      <a href="/?p=account" id="navAccount" class="navLink" hidden data-i18n="nav.account">Account</a>
+      <button id="navLogout" class="navLink linkBtn" hidden data-i18n="nav.logout">Log out</button>
+      <a href="/?p=login" id="navLogin" class="navLink" hidden data-i18n="nav.login">Log in</a>
+      <select id="langSel" class="langSel" aria-label="Language"></select>
     </nav>
   </header>
 
@@ -23,25 +25,25 @@
   <main id="auth" class="narrow" hidden>
     <section class="card">
       <div class="seg" id="authTabs">
-        <button data-v="login" class="on">Accedi</button>
-        <button data-v="signup">Registrati</button>
+        <button data-v="login" class="on" data-i18n="auth.login">Log in</button>
+        <button data-v="signup" data-i18n="auth.signup">Sign up</button>
       </div>
       <form id="authForm" class="stack">
-        <label class="field">Email
+        <label class="field"><span data-i18n="auth.email">Email</span>
           <input id="authEmail" type="email" autocomplete="email" required>
         </label>
-        <label class="field" id="authPassField">Password
+        <label class="field" id="authPassField"><span data-i18n="auth.password">Password</span>
           <input id="authPass" type="password" autocomplete="current-password" minlength="6" required>
         </label>
-        <button id="authSubmit" class="primary" type="submit">Accedi</button>
-        <button id="authForgot" class="linkBtn" type="button">Password dimenticata?</button>
+        <button id="authSubmit" class="primary" type="submit" data-i18n="auth.login">Log in</button>
+        <button id="authForgot" class="linkBtn" type="button" data-i18n="auth.forgot">Forgot your password?</button>
       </form>
       <form id="resetForm" class="stack" hidden>
-        <p class="hint">Scegli una nuova password.</p>
-        <label class="field">Nuova password
+        <p class="hint" data-i18n="auth.chooseNew">Choose a new password.</p>
+        <label class="field"><span data-i18n="auth.newPassword">New password</span>
           <input id="newPass" type="password" autocomplete="new-password" minlength="6" required>
         </label>
-        <button class="primary" type="submit">Salva password</button>
+        <button class="primary" type="submit" data-i18n="auth.savePassword">Save password</button>
       </form>
       <p id="authMsg" class="msg"></p>
     </section>
@@ -50,27 +52,27 @@
   <!-- Account -->
   <main id="account" class="narrow" hidden>
     <section class="card">
-      <h1>Il tuo account</h1>
+      <h1 data-i18n="acc.title">Your account</h1>
       <p class="hint" id="accEmail"></p>
 
-      <h3>Chiave OpenRouter</h3>
-      <p class="hint">Con la tua chiave l'LLM gioca da solo: ogni mossa è una chiamata al modello che scegli, pagata dal tuo credito OpenRouter. La chiave viene salvata cifrata e non viene mai mostrata di nuovo. Creane una su <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>.</p>
+      <h3 data-i18n="acc.keyTitle">OpenRouter key</h3>
+      <p class="hint" data-i18n-html="acc.keyHint">With your key the LLM plays on its own: each move is a call to the model you pick, paid from your OpenRouter credit. The key is stored encrypted and never shown again. Create one at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>.</p>
       <div id="keyStatus" class="keyStatus"></div>
       <div class="copyRow">
         <input id="keyInput" type="password" placeholder="sk-or-..." autocomplete="off">
-        <button id="keySave" class="small primary">Salva</button>
+        <button id="keySave" class="small primary" data-i18n="common.save">Save</button>
       </div>
-      <button id="keyRemove" class="small danger" hidden>Rimuovi chiave</button>
+      <button id="keyRemove" class="small danger" hidden data-i18n="acc.removeKey">Remove key</button>
 
-      <h3 class="mt">Modello predefinito</h3>
-      <p class="hint">Lo usi per le nuove partite; puoi cambiarlo ogni volta.</p>
+      <h3 class="mt" data-i18n="acc.defaultModel">Default model</h3>
+      <p class="hint" data-i18n="acc.defaultModelHint">Used for new games; you can change it every time.</p>
       <div class="modelPick" id="accModelPick"></div>
-      <button id="modelSave" class="small primary">Salva modello</button>
+      <button id="modelSave" class="small primary" data-i18n="acc.saveModel">Save model</button>
       <p id="accMsg" class="msg"></p>
     </section>
 
     <section class="card subtle">
-      <h2>Le tue partite</h2>
+      <h2 data-i18n="acc.yourGames">Your games</h2>
       <ul id="accGames" class="gameList"></ul>
     </section>
   </main>
@@ -78,19 +80,19 @@
   <!-- Pannello admin -->
   <main id="admin" class="wide" hidden>
     <div class="seg adminTabs" id="adminTabs">
-      <button data-v="users" class="on">Account</button>
-      <button data-v="games">Partite</button>
+      <button data-v="users" class="on" data-i18n="admin.accounts">Accounts</button>
+      <button data-v="games" data-i18n="admin.games">Games</button>
     </div>
 
     <section class="card" id="adminUsers">
       <div class="toolbar">
-        <input id="userSearch" type="search" placeholder="Cerca per email…">
+        <input id="userSearch" type="search" data-i18n-ph="admin.search" placeholder="Search by email…">
         <span class="hint" id="userCount"></span>
       </div>
-      <p class="hint">Livelli: <b>utente</b> gioca normalmente, <b>streamer</b> può attivare la modalità Twitch, <b>admin</b> gestisce account e partite.</p>
+      <p class="hint" data-i18n-html="admin.levelsHint">Levels: <b>user</b> plays normally, <b>streamer</b> can turn on Twitch mode, <b>admin</b> manages accounts and games.</p>
       <div class="tableWrap">
         <table class="table">
-          <thead><tr><th>Email</th><th>Iscritto</th><th>Ultimo accesso</th><th>Chiave</th><th>Partite</th><th>Livello</th></tr></thead>
+          <thead><tr><th data-i18n="auth.email">Email</th><th data-i18n="admin.joined">Joined</th><th data-i18n="admin.lastLogin">Last login</th><th data-i18n="admin.key">Key</th><th data-i18n="admin.games">Games</th><th data-i18n="admin.level">Level</th></tr></thead>
           <tbody id="userRows"></tbody>
         </table>
       </div>
@@ -100,30 +102,30 @@
 
     <section class="card" id="adminGames" hidden>
       <div class="toolbar">
-        <label class="inline">Mostra
+        <label class="inline"><span data-i18n="admin.show">Show</span>
           <select id="gameFilter">
-            <option value="0">tutte</option>
-            <option value="7">ferme da più di 7 giorni</option>
-            <option value="30">ferme da più di 30 giorni</option>
-            <option value="90">ferme da più di 90 giorni</option>
+            <option value="0" data-i18n="admin.all">all</option>
+            <option value="7" data-i18n="admin.idle7">idle for more than 7 days</option>
+            <option value="30" data-i18n="admin.idle30">idle for more than 30 days</option>
+            <option value="90" data-i18n="admin.idle90">idle for more than 90 days</option>
           </select>
         </label>
         <span class="hint" id="gameCount"></span>
         <span class="spacer"></span>
-        <button class="small danger" id="deleteSelected" disabled>Elimina selezionate</button>
+        <button class="small danger" id="deleteSelected" disabled data-i18n="admin.deleteSelected">Delete selected</button>
       </div>
       <div class="tableWrap">
         <table class="table">
-          <thead><tr><th><input type="checkbox" id="selectAll"></th><th>Partita</th><th>Giocatori</th><th>Proprietario</th><th>Mosse</th><th>Stato</th><th>Ultima attività</th></tr></thead>
+          <thead><tr><th><input type="checkbox" id="selectAll"></th><th data-i18n="admin.game">Game</th><th data-i18n="admin.players">Players</th><th data-i18n="admin.owner">Owner</th><th data-i18n="admin.moves">Moves</th><th data-i18n="admin.status">Status</th><th data-i18n="admin.lastActivity">Last activity</th></tr></thead>
           <tbody id="gameRows"></tbody>
         </table>
       </div>
       <div class="pager"><button class="small" id="gamePrev">←</button><span id="gamePage"></span><button class="small" id="gameNext">→</button></div>
       <div class="purge">
-        <span>Elimina tutte le partite ferme da più di</span>
+        <span data-i18n="admin.purgeBefore">Delete all games idle for more than</span>
         <input id="purgeDays" type="number" min="1" value="30">
-        <span>giorni</span>
-        <button class="small danger" id="purgeBtn">Elimina</button>
+        <span data-i18n="admin.days">days</span>
+        <button class="small danger" id="purgeBtn" data-i18n="common.delete">Delete</button>
       </div>
       <p id="gameMsg" class="msg"></p>
     </section>
@@ -132,74 +134,74 @@
   <!-- Lobby -->
   <main id="lobby" class="narrow" hidden>
     <section class="card">
-      <h1>Nuova partita</h1>
-      <label class="field">Il tuo nome
-        <input id="name" maxlength="30" placeholder="Es. Daniele" autocomplete="nickname">
+      <h1 data-i18n="lobby.title">New game</h1>
+      <label class="field"><span data-i18n="lobby.yourName">Your name</span>
+        <input id="name" maxlength="30" data-i18n-ph="lobby.namePh" placeholder="e.g. Alex" autocomplete="nickname">
       </label>
 
-      <div class="field">Contro chi giochi
+      <div class="field"><span data-i18n="lobby.opponent">Who you play against</span>
         <div class="seg" id="opponent">
-          <button data-v="llm" class="on">Un LLM</button>
-          <button data-v="human">Un amico</button>
-          <button data-v="twitch" id="optTwitch" hidden>Chat Twitch vs LLM</button>
+          <button data-v="llm" class="on" data-i18n="lobby.vsLlm">An LLM</button>
+          <button data-v="human" data-i18n="lobby.vsFriend">A friend</button>
+          <button data-v="twitch" id="optTwitch" hidden data-i18n="lobby.vsTwitch">Twitch chat vs LLM</button>
         </div>
       </div>
 
       <div id="llmOptions">
-        <div class="field" id="modeField">Come gioca l'LLM
+        <div class="field" id="modeField"><span data-i18n="lobby.howLlm">How the LLM plays</span>
           <div class="seg" id="mode">
-            <button data-v="auto" class="on">Da solo (OpenRouter)</button>
-            <button data-v="manual">Copia e incolla</button>
+            <button data-v="auto" class="on" data-i18n="lobby.auto">On its own (OpenRouter)</button>
+            <button data-v="manual" data-i18n="lobby.manual">Copy and paste</button>
           </div>
         </div>
-        <div class="field" id="modelField"><span id="modelLabel">Modello</span>
+        <div class="field" id="modelField"><span id="modelLabel" data-i18n="lobby.model">Model</span>
           <div class="modelPick" id="lobbyModelPick"></div>
         </div>
         <p class="hint" id="llmHint"></p>
       </div>
 
       <div id="twitchOptions" hidden>
-        <label class="field">Canale Twitch
-          <input id="twChannel" maxlength="40" placeholder="ilmiocanale" autocomplete="off">
+        <label class="field"><span data-i18n="tw.channel">Twitch channel</span>
+          <input id="twChannel" maxlength="40" data-i18n-ph="tw.channelPh" placeholder="mychannel" autocomplete="off">
         </label>
         <div class="twoCols">
-          <label class="field">Secondi per votare
+          <label class="field"><span data-i18n="tw.voteSeconds">Seconds to vote</span>
             <input id="twVote" type="number" min="10" max="300" value="30">
           </label>
-          <label class="field">Cuscinetto (secondi)
+          <label class="field"><span data-i18n="tw.grace">Grace period (seconds)</span>
             <input id="twGrace" type="number" min="0" max="20" value="4">
           </label>
         </div>
-        <p class="hint">Il cuscinetto raccoglie i voti arrivati in ritardo per la latenza dello stream: 3-4 secondi con la bassa latenza di Twitch, di più con quella normale.</p>
-        <label class="field">Nuova partita automatica dopo (secondi, 0 = spenta)
+        <p class="hint" data-i18n="tw.graceHint">The grace period collects votes that arrive late because of stream delay: 3-4 seconds with Twitch low latency, more with normal latency.</p>
+        <label class="field"><span data-i18n="tw.autoNext">Auto-start the next game after (seconds, 0 = off)</span>
           <input id="twNext" type="number" min="0" max="600" value="30">
         </label>
-        <div class="field">Scelta del modello per le partite successive
+        <div class="field"><span data-i18n="tw.modelMode">Model for the following games</span>
           <div class="seg small" id="twModelMode">
-            <button data-v="fixed" class="on">Sempre lo stesso</button>
-            <button data-v="random">Casuale</button>
-            <button data-v="vote">Votato dalla chat</button>
+            <button data-v="fixed" class="on" data-i18n="tw.fixed">Always the same</button>
+            <button data-v="random" data-i18n="tw.random">Random</button>
+            <button data-v="vote" data-i18n="tw.vote">Voted by chat</button>
           </div>
         </div>
-        <div class="field" id="twPoolField" hidden>Modelli in gara (da 2 a 5)
+        <div class="field" id="twPoolField" hidden><span data-i18n="tw.pool">Models in the running (2 to 5)</span>
           <div class="poolEditor" id="twPool"></div>
         </div>
       </div>
 
-      <div class="field"><span id="colorLabel">Il tuo colore</span>
+      <div class="field"><span id="colorLabel" data-i18n="lobby.yourColor">Your colour</span>
         <div class="seg" id="color">
-          <button data-v="w">Bianco</button>
-          <button data-v="random" class="on">Casuale</button>
-          <button data-v="b">Nero</button>
+          <button data-v="w" data-i18n="common.white">White</button>
+          <button data-v="random" class="on" data-i18n="common.random">Random</button>
+          <button data-v="b" data-i18n="common.black">Black</button>
         </div>
       </div>
 
-      <button id="create" class="primary">Crea partita</button>
+      <button id="create" class="primary" data-i18n="lobby.create">Create game</button>
       <p id="lobbyErr" class="err"></p>
     </section>
 
     <section class="card subtle" id="myGames" hidden>
-      <h2>Partite recenti</h2>
+      <h2 data-i18n="lobby.recent">Recent games</h2>
       <ul id="gameList" class="gameList"></ul>
     </section>
   </main>
@@ -209,7 +211,7 @@
     <div class="boardCol">
       <div class="player top" id="pTop"></div>
       <div class="boardWrap">
-        <div id="board" class="board" aria-label="Scacchiera"></div>
+        <div id="board" class="board" aria-label="Chessboard"></div>
         <div id="promo" class="promo" hidden></div>
       </div>
       <div class="player bottom" id="pBottom"></div>
@@ -217,57 +219,58 @@
 
     <aside class="side">
       <div class="card status">
-        <div id="status" class="statusText">Caricamento…</div>
+        <div id="status" class="statusText" data-i18n="common.loading">Loading…</div>
         <div id="drawBar" class="drawBar" hidden>
-          <span>L'avversario propone la patta</span>
-          <button id="acceptDraw" class="small primary">Accetta</button>
-          <button id="declineDraw" class="small">Rifiuta</button>
+          <span data-i18n="game.drawOffered">Your opponent offers a draw</span>
+          <button id="acceptDraw" class="small primary" data-i18n="game.accept">Accept</button>
+          <button id="declineDraw" class="small" data-i18n="game.decline">Decline</button>
         </div>
         <p id="gameErr" class="err"></p>
       </div>
 
       <div class="card" id="inviteCard" hidden>
-        <h3>Invita un amico</h3>
-        <p class="hint">Mandagli questo link: chi lo apre per primo prende il posto libero.</p>
-        <div class="copyRow"><input id="inviteUrl" readonly><button class="small" data-copy="inviteUrl">Copia</button></div>
+        <h3 data-i18n="game.invite">Invite a friend</h3>
+        <p class="hint" data-i18n="game.inviteHint">Send them this link: whoever opens it first takes the free seat.</p>
+        <div class="copyRow"><input id="inviteUrl" readonly><button class="small" data-copy="inviteUrl" data-i18n="common.copy">Copy</button></div>
       </div>
 
       <!-- Live Twitch: pannello dello streamer -->
       <div class="card" id="liveCard" hidden>
-        <h3>Live Twitch · <span id="liveChannel"></span></h3>
+        <h3><span data-i18n="live.title">Twitch live</span> · <span id="liveChannel"></span></h3>
         <div id="liveState" class="liveState"></div>
-        <p class="hint">Aggiungi in OBS una <b>Browser Source</b> 1920×1080 con questo indirizzo. È sempre lo stesso: mostra da sola l'ultima partita Twitch che crei.</p>
-        <div class="copyRow"><input id="overlayUrl" readonly><button class="small" data-copy="overlayUrl">Copia</button></div>
-        <label class="check"><input type="checkbox" id="overlayTransparent"> Sfondo trasparente</label>
+        <p class="hint" data-i18n-html="live.obsHint">Add a 1920×1080 <b>Browser Source</b> in OBS with this address. It never changes: it always shows the latest Twitch game you create.</p>
+        <div class="copyRow"><input id="overlayUrl" readonly><button class="small" data-copy="overlayUrl" data-i18n="common.copy">Copy</button></div>
+        <label class="field"><span data-i18n="live.overlayLang">Overlay language</span><select id="overlayLang"></select></label>
+        <label class="check"><input type="checkbox" id="overlayTransparent"> <span data-i18n="live.transparent">Transparent background</span></label>
         <details>
-          <summary>Impostazioni</summary>
-          <label class="field">Canale<input id="setChannel" maxlength="40"></label>
+          <summary data-i18n="live.settings">Settings</summary>
+          <label class="field"><span data-i18n="tw.channelShort">Channel</span><input id="setChannel" maxlength="40"></label>
           <div class="twoCols">
-            <label class="field">Secondi per votare<input id="setVote" type="number" min="10" max="300"></label>
-            <label class="field">Cuscinetto<input id="setGrace" type="number" min="0" max="20"></label>
+            <label class="field"><span data-i18n="tw.voteSeconds">Seconds to vote</span><input id="setVote" type="number" min="10" max="300"></label>
+            <label class="field"><span data-i18n="tw.graceShort">Grace period</span><input id="setGrace" type="number" min="0" max="20"></label>
           </div>
-        <label class="field">Nuova partita automatica dopo (secondi, 0 = spenta)
-          <input id="setNext" type="number" min="0" max="600" value="0">
-        </label>
-        <div class="field">Scelta del modello per le partite successive
-          <div class="seg small" id="setModelMode">
-            <button data-v="fixed" class="on">Sempre lo stesso</button>
-            <button data-v="random">Casuale</button>
-            <button data-v="vote">Votato dalla chat</button>
+          <label class="field"><span data-i18n="tw.autoNext">Auto-start the next game after (seconds, 0 = off)</span>
+            <input id="setNext" type="number" min="0" max="600" value="0">
+          </label>
+          <div class="field"><span data-i18n="tw.modelMode">Model for the following games</span>
+            <div class="seg small" id="setModelMode">
+              <button data-v="fixed" class="on" data-i18n="tw.fixed">Always the same</button>
+              <button data-v="random" data-i18n="tw.random">Random</button>
+              <button data-v="vote" data-i18n="tw.vote">Voted by chat</button>
+            </div>
           </div>
-        </div>
-        <div class="field" id="setPoolField" hidden>Modelli in gara (da 2 a 5)
-          <div class="poolEditor" id="setPool"></div>
-        </div>
-          <button id="saveLive" class="small primary">Salva</button>
-          <p class="hint">Valgono dal prossimo turno di voto.</p>
+          <div class="field" id="setPoolField" hidden><span data-i18n="tw.pool">Models in the running (2 to 5)</span>
+            <div class="poolEditor" id="setPool"></div>
+          </div>
+          <button id="saveLive" class="small primary" data-i18n="common.save">Save</button>
+          <p class="hint" data-i18n="live.nextRound">They apply from the next voting round.</p>
         </details>
         <details>
-          <summary>Voto di prova</summary>
-          <p class="hint">Simula un messaggio in chat, per provare l'overlay senza essere in live.</p>
-          <div class="copyRow"><input id="testVoter" placeholder="spettatore" value="test1"><input id="testMove" placeholder="Nf6"><button id="sendTest" class="small">Vota</button></div>
+          <summary data-i18n="live.testVote">Test vote</summary>
+          <p class="hint" data-i18n="live.testHint">Simulates a chat message, to try the overlay without being live.</p>
+          <div class="copyRow"><input id="testVoter" data-i18n-ph="live.viewer" placeholder="viewer" value="test1"><input id="testMove" placeholder="Nf6"><button id="sendTest" class="small" data-i18n="live.vote">Vote</button></div>
         </details>
-        <button id="newLiveGame" class="small mt8">Nuova partita con le stesse impostazioni</button>
+        <button id="newLiveGame" class="small mt8" data-i18n="live.newGame">New game with the same settings</button>
       </div>
 
       <!-- LLM: modalità automatica -->
@@ -276,49 +279,49 @@
         <div id="llmState" class="llmState"></div>
         <div id="llmErrBox" class="errBox" hidden>
           <p id="llmErrText"></p>
-          <button id="llmRetry" class="small primary">Riprova</button>
+          <button id="llmRetry" class="small primary" data-i18n="game.retry">Try again</button>
         </div>
         <details id="llmReplyBox" hidden>
-          <summary>Ultima risposta del modello</summary>
+          <summary data-i18n="game.lastReply">Model's last reply</summary>
           <pre id="llmReply" class="reply"></pre>
         </details>
       </div>
 
       <!-- LLM: modalità copia e incolla (anche come ripiego se la modalità automatica fallisce) -->
       <div class="card" id="llmManual" hidden>
-        <h3>Mossa dell'LLM</h3>
+        <h3 data-i18n="manual.title">The LLM's move</h3>
         <ol class="steps">
-          <li>Copia il prompt e incollalo nella chat del tuo LLM.
+          <li><span data-i18n="manual.step1">Copy the prompt and paste it into your LLM's chat.</span>
             <textarea id="promptText" readonly rows="6"></textarea>
-            <button id="copyPrompt" class="small primary">Copia il prompt</button>
+            <button id="copyPrompt" class="small primary" data-i18n="manual.copyPrompt">Copy the prompt</button>
           </li>
-          <li>Che mossa ti ha detto? Scrivila (va bene anche incollare tutta la risposta) oppure sceglila dall'elenco.
+          <li><span data-i18n="manual.step2">Which move did it pick? Type it (pasting the whole reply is fine too) or choose it from the list.</span>
             <div class="copyRow">
-              <input id="llmAnswer" placeholder="Es. Nf6">
-              <select id="llmSelect"><option value="">Elenco…</option></select>
+              <input id="llmAnswer" data-i18n-ph="manual.answerPh" placeholder="e.g. Nf6">
+              <select id="llmSelect"><option value="" data-i18n="manual.list">List…</option></select>
             </div>
-            <button id="sendAnswer" class="small primary">Gioca la mossa</button>
+            <button id="sendAnswer" class="small primary" data-i18n="manual.play">Play the move</button>
           </li>
         </ol>
       </div>
 
       <div class="card" id="llmApiCard" hidden>
         <details>
-          <summary>Collegare un LLM via API</summary>
-          <p class="hint">Agenti e script possono giocare da soli aprendo questo indirizzo: ricevono la mossa avversaria, le mosse possibili e le istruzioni per rispondere.</p>
-          <div class="copyRow"><input id="llmUrl" readonly><button class="small" data-copy="llmUrl">Copia</button></div>
+          <summary data-i18n="api.title">Connect an LLM via API</summary>
+          <p class="hint" data-i18n="api.hint">Agents and scripts can play on their own by opening this address: they get the opponent's move, the possible moves and instructions on how to reply.</p>
+          <div class="copyRow"><input id="llmUrl" readonly><button class="small" data-copy="llmUrl" data-i18n="common.copy">Copy</button></div>
         </details>
       </div>
 
       <div class="card">
-        <h3>Mosse</h3>
+        <h3 data-i18n="game.moves">Moves</h3>
         <ol id="moves" class="moves"></ol>
       </div>
 
       <div class="card actions" id="actions" hidden>
-        <button id="offerDraw" class="small">Proponi patta</button>
-        <button id="resign" class="small danger">Abbandona</button>
-        <button id="flip" class="small">Gira scacchiera</button>
+        <button id="offerDraw" class="small" data-i18n="game.offerDraw">Offer a draw</button>
+        <button id="resign" class="small danger" data-i18n="game.resign">Resign</button>
+        <button id="flip" class="small" data-i18n="game.flip">Flip board</button>
       </div>
     </aside>
   </main>

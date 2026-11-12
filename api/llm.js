@@ -8,6 +8,7 @@
 import { getGame } from '../lib/store.js';
 import { seatOf, llmPrompt, evaluate, extractMove } from '../lib/view.js';
 import { act, waitForChange, baseUrl, UserError } from '../lib/actions.js';
+import { msg } from '../lib/messages.js';
 
 function send(res, fmt, status, payload) {
   res.setHeader('Cache-Control', 'no-store');
@@ -52,7 +53,8 @@ export default async function handler(req, res) {
       } catch (e) {
         if (!(e instanceof UserError)) throw e;
         const p = llmPrompt(row, color, base, token);
-        return send(res, fmt, 200, { status: 'error', error: e.message, text: `ERROR: ${e.message.replace('Mossa non legale', 'Illegal move').replace('Non è il tuo turno.', 'It is not your turn.').replace('La partita è finita.', 'The game is over.')}\n\n${p.text}` });
+        const err = msg('en', e.key, e.vars);
+        return send(res, fmt, 200, { status: 'error', error: err, text: `ERROR: ${err}\n\n${p.text}` });
       }
     }
 

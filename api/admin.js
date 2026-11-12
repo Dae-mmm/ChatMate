@@ -1,4 +1,5 @@
 // Pannello admin (solo account con livello "admin").
+import { msg, langOf, AppError, sendError } from '../lib/messages.js';
 // GET  /api/admin?view=users&q=<email>&page=<n>
 // GET  /api/admin?view=games&inactive=<giorni>&page=<n>
 // POST /api/admin { action: "set_role", userId, role }
@@ -13,8 +14,8 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   try {
     const user = await getUser(req);
-    if (!user) return res.status(401).json({ error: 'Accedi per continuare.' });
-    if ((await getRole(user.id)) !== 'admin') return res.status(403).json({ error: 'Serve un account admin.' });
+    if (!user) return res.status(401).json({ error: msg(langOf(req), 'login_required'), code: 'login_required' });
+    if ((await getRole(user.id)) !== 'admin') return res.status(403).json({ error: msg(langOf(req), 'admin_required'), code: 'admin_required' });
 
     if (req.method === 'GET') {
       const page = Math.max(0, parseInt(req.query.page, 10) || 0);
@@ -30,12 +31,12 @@ export default async function handler(req, res) {
             created: g.created_at,
             updated: g.updated_at,
             owner: g.owner_email,
-            white: g.white_name || (g.white_kind === 'llm' ? 'LLM' : 'anonimo'),
-            black: g.black_name || (g.black_kind === 'llm' ? 'LLM' : 'anonimo'),
+            white: g.white_name || (g.white_kind === 'llm' ? 'LLM' : null),
+            black: g.black_name || (g.black_kind === 'llm' ? 'LLM' : null),
             vsLlm: g.white_kind === 'llm' || g.black_kind === 'llm',
             model: g.llm_model,
             moves: g.moves,
-            status: g.result ? (g.result === '1/2-1/2' ? 'patta' : g.result) : 'in corso',
+            status: g.result || 'ongoing',
           })),
         });
       }
@@ -51,28 +52,28 @@ export default async function handler(req, res) {
       });
     }
 
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Metodo non supportato' });
+    if (req.method !== 'POST') return res.status(405).json({ error: msg(langOf(req), 'method'), code: 'method' });
     const body = readBody(req);
     if (body.action === 'set_role') {
-      if (!ROLES.includes(body.role)) return res.status(400).json({ error: 'Livello non valido.' });
-      if (body.userId === user.id) return res.status(400).json({ error: 'Non puoi cambiare il tuo livello da qui.' });
-      if (!/^[0-9a-f-]{36}$/i.test(String(body.userId || ''))) return res.status(400).json({ error: 'Utente non valido.' });
+      if (!ROLES.includes(body.role)) return res.status(400).json({ error: msg(langOf(req), 'role_invalid'), code: 'role_invalid' });
+      if (body.userId === user.id) return res.status(400).json({ error: msg(langOf(req), 'own_role'), code: 'own_role' });
+      if (!/^[0-9a-f-]{36}$/i.test(String(body.userId || ''))) return res.status(400).json({ error: msg(langOf(req), 'user_invalid'), code: 'user_invalid' });
       await adminSetRole(body.userId, body.role);
       return res.status(200).json({ ok: true, role: body.role });
     }
     if (body.action === 'delete_games') {
       const ids = (Array.isArray(body.ids) ? body.ids : []).map(String).filter((x) => /^[a-z0-9]{4,20}$/.test(x)).slice(0, 500);
-      if (!ids.length) return res.status(400).json({ error: 'Nessuna partita selezionata.' });
+      if (!ids.length) return res.status(400).json({ error: msg(langOf(req), 'no_games_selected'), code: 'no_games_selected' });
       return res.status(200).json({ deleted: await adminDeleteGames(ids) });
     }
     if (body.action === 'purge') {
       const days = parseInt(body.days, 10);
-      if (!(days >= 1)) return res.status(400).json({ error: 'Indica almeno 1 giorno.' });
+      if (!(days >= 1)) return res.status(400).json({ error: msg(langOf(req), 'min_one_day'), code: 'min_one_day' });
       return res.status(200).json({ deleted: await adminPurgeGames(days) });
     }
-    return res.status(400).json({ error: 'Azione sconosciuta.' });
+    return res.status(400).json({ error: msg(langOf(req), 'unknown_action'), code: 'unknown_action' });
   } catch (e) {
     console.error(e);
-    return res.status(500).json({ error: 'Errore del server' });
+    return res.status(500).json({ error: msg(langOf(req), 'server'), code: 'server' });
   }
 }
