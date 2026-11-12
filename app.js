@@ -273,6 +273,7 @@ async function initAccount() {
       ? `<span class="badge ok">${t('acc.badgeLinked')}</span> ${t('acc.keyEnding')} <code>…${escapeHtml(acc.keyLast4)}</code>`
       : `<span class="badge">${t('acc.badgeNone')}</span> ${t('acc.noKeyText')}`;
     $('keyRemove').hidden = !acc.hasKey;
+    $('reasoningOn').checked = acc.reasoning !== false;
     $('keyInput').placeholder = acc.hasKey ? t('acc.replacePh') : 'sk-or-...';
     const ul = $('accGames'); ul.innerHTML = '';
     if (!acc.games.length) ul.innerHTML = `<li class="hint">${t('acc.noGames')}</li>`;
@@ -293,6 +294,11 @@ async function initAccount() {
     if (!confirmInline($('keyRemove'), t('common.sure'), t('acc.removeKey'))) return;
     try { acc = { ...acc, ...(await api('/api/account', { method: 'POST', body: JSON.stringify({ action: 'remove_key' }) })) }; render(); msg($('accMsg'), t('acc.keyRemoved'), true); }
     catch (e) { msg($('accMsg'), e.message); }
+  };
+  $('reasoningOn').onchange = async () => {
+    const enabled = $('reasoningOn').checked;
+    try { acc = { ...acc, ...(await api('/api/account', { method: 'POST', body: JSON.stringify({ action: 'set_reasoning', enabled }) })) }; msg($('accMsg'), t(enabled ? 'acc.reasoningOn' : 'acc.reasoningOff'), true); }
+    catch (e) { $('reasoningOn').checked = !enabled; msg($('accMsg'), e.message); }
   };
   $('modelSave').onclick = async () => {
     try { acc = { ...acc, ...(await api('/api/account', { method: 'POST', body: JSON.stringify({ action: 'set_model', model: picker.value() }) })) }; msg($('accMsg'), t('acc.modelSaved'), true); }

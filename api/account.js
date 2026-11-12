@@ -4,6 +4,7 @@ import { msg, langOf, AppError, sendError } from '../lib/messages.js';
 // POST /api/account { action: "set_key", key }         verifica e salva la chiave OpenRouter (cifrata)
 // POST /api/account { action: "remove_key" }
 // POST /api/account { action: "set_model", model }     modello predefinito
+// POST /api/account { action: "set_reasoning", enabled } far ragionare i modelli che lo supportano
 import { getUser, encrypt, readBody } from '../lib/auth.js';
 import { getProfile, setProfile, listGames } from '../lib/store.js';
 import { checkKey } from '../lib/openrouter.js';
@@ -14,6 +15,7 @@ const profileView = (user, p) => ({
   hasKey: !!p?.openrouter_key_enc,
   keyLast4: p?.key_last4 || null,
   defaultModel: p?.default_model || null,
+  reasoning: p?.llm_reasoning !== false,
   role: p?.role || 'user',
 });
 
@@ -58,6 +60,8 @@ export default async function handler(req, res) {
       p = await setProfile(user.id, { openrouter_key_enc: encrypt(key), key_last4: key.slice(-4) });
     } else if (body.action === 'remove_key') {
       p = await setProfile(user.id, { openrouter_key_enc: null, key_last4: null });
+    } else if (body.action === 'set_reasoning') {
+      p = await setProfile(user.id, { llm_reasoning: body.enabled !== false });
     } else if (body.action === 'set_model') {
       const model = String(body.model || '').trim().slice(0, 120) || null;
       if (model && !/^[\w.\-]+\/[\w.:\-]+$/.test(model)) return res.status(400).json({ error: msg(langOf(req), 'model_id_invalid'), code: 'model_id_invalid' });
