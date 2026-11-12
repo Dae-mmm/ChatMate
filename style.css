@@ -131,3 +131,23 @@ select, textarea { font: inherit; color: var(--text); background: var(--panel2);
 .steps textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; resize: vertical; color: var(--muted); }
 .steps select { width: 40%; min-width: 110px; padding: 7px 8px; font-size: 13px; }
 #llmModel { text-transform: none; letter-spacing: 0; color: var(--text); }
+
+/* Pannello admin */
+.wide { max-width: 1100px; margin: 28px auto; padding: 0 16px; display: grid; gap: 14px; }
+.adminTabs { max-width: 320px; }
+.toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.toolbar input[type=search] { flex: 1; min-width: 200px; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; color: var(--text); }
+.toolbar .spacer { flex: 1; }
+.inline { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.inline select { width: auto; padding: 6px 8px; font-size: 13px; }
+.tableWrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .05em; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.table td { padding: 8px 10px; border-bottom: 1px solid #2f281f; vertical-align: middle; }
+.table tr:hover td { background: #2a241c; }
+.table td.empty { color: var(--muted); text-align: center; padding: 22px; }
+.table input[type=checkbox] { accent-color: var(--accent); }
+.roleSel { width: auto; padding: 5px 8px; font-size: 13px; }
+.pager { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 10px; font-size: 13px; color: var(--muted); }
+.purge { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.purge input { width: 70px; background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; color: var(--text); }

@@ -116,11 +116,17 @@ function initSeg(id, onChange) {
 }
 const msg = (el, text, ok = false) => { el.textContent = text || ''; el.classList.toggle('ok', ok); };
 
+// Profilo dell'utente collegato (livello, chiave, partite), caricato una volta per pagina
+let mePromise = null;
+const loadMe = () => (mePromise ||= auth.session ? api('/api/account').catch(() => null) : Promise.resolve(null));
+
 function renderNav() {
   const s = auth.session;
   $('navUser').hidden = $('navAccount').hidden = $('navLogout').hidden = !s;
   $('navLogin').hidden = !!s;
   $('navUser').textContent = s?.email || '';
+  $('navAdmin').hidden = true;
+  if (s) loadMe().then((me) => { $('navAdmin').hidden = me?.role !== 'admin'; });
 }
 
 // ---------- selettore del modello (lista curata + ID libero) ----------
@@ -229,7 +235,8 @@ async function initAccount() {
     if (!acc.games.length) ul.innerHTML = '<li class="hint">Ancora nessuna partita.</li>';
     for (const g of acc.games) ul.append(gameItem(g.id, g.vsLlm ? `vs ${g.opponent}` : 'vs amico', `${g.moves} mosse · ${g.status}`));
   };
-  try { acc = await api('/api/account'); } catch (e) { msg($('accMsg'), e.message); return; }
+  acc = await loadMe();
+  if (!acc) { msg($('accMsg'), 'Impossibile caricare l\'account: riprova ad accedere.'); return; }
   render();
   const picker = await modelPicker($('accModelPick'), acc.defaultModel);
   $('keySave').onclick = async () => {
@@ -257,11 +264,114 @@ function gameItem(id, title, sub) {
   a.append(s); li.append(a); return li;
 }
 
+// ---------- pannello admin ----------
+const ROLE_LABEL = { user: 'Utente', streamer: 'Streamer', admin: 'Admin' };
+const fmtDate = (d) => (d ? new Date(d).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—');
+const td = (text, cls) => { const c = document.createElement('td'); c.textContent = text ?? '—'; if (cls) c.className = cls; return c; };
+
+async function initAdmin() {
+  const me = await loadMe();
+  if (!me) { location.href = '/?p=login'; return; }
+  $('admin').hidden = false;
+  if (me.role !== 'admin') { $('admin').innerHTML = '<section class="card"><h1>Accesso negato</h1><p class="hint">Questa pagina è riservata agli account admin.</p></section>'; return; }
+
+  initSeg('adminTabs', (v) => { $('adminUsers').hidden = v !== 'users'; $('adminGames').hidden = v !== 'games'; if (v === 'games' && !G.loaded) loadGames(); });
+
+  // Account
+  const U = { q: '', page: 0 };
+  async function loadUsers() {
+    msg($('userMsg'), '');
+    let r;
+    try { r = await api(`/api/admin?view=users&q=${encodeURIComponent(U.q)}&page=${U.page}`); } catch (e) { msg($('userMsg'), e.message); return; }
+    const body = $('userRows'); body.innerHTML = '';
+    if (!r.users.length) { const tr = document.createElement('tr'); tr.append(td('Nessun account trovato.', 'empty')); tr.firstChild.colSpan = 6; body.append(tr); }
+    for (const u of r.users) {
+      const tr = document.createElement('tr');
+      tr.append(td(u.email + (u.confirmed ? '' : ' (da confermare)')), td(fmtDate(u.created)), td(fmtDate(u.lastSignIn)), td(u.hasKey ? 'sì' : 'no'), td(String(u.games)));
+      const cell = document.createElement('td');
+      const sel = document.createElement('select'); sel.className = 'roleSel';
+      for (const [v, l] of Object.entries(ROLE_LABEL)) sel.append(new Option(l, v, false, v === u.role));
+      sel.disabled = u.id === r.me;
+      if (sel.disabled) sel.title = 'Non puoi cambiare il tuo livello';
+      sel.onchange = async () => {
+        sel.disabled = true;
+        try { await api('/api/admin', { method: 'POST', body: JSON.stringify({ action: 'set_role', userId: u.id, role: sel.value }) }); u.role = sel.value; toast(`${u.email}: ${ROLE_LABEL[sel.value]}`); }
+        catch (e) { sel.value = u.role; msg($('userMsg'), e.message); }
+        sel.disabled = false;
+      };
+      cell.append(sel); tr.append(cell); body.append(tr);
+    }
+    $('userCount').textContent = r.users.length ? `${r.users.length} ${r.users.length === 1 ? 'account' : 'account'} in questa pagina` : '';
+    $('userPage').textContent = `pagina ${U.page + 1}`;
+    $('userPrev').disabled = U.page === 0;
+    $('userNext').disabled = r.users.length < r.pageSize;
+  }
+  let t;
+  $('userSearch').oninput = () => { clearTimeout(t); t = setTimeout(() => { U.q = $('userSearch').value.trim(); U.page = 0; loadUsers(); }, 300); };
+  $('userPrev').onclick = () => { U.page--; loadUsers(); };
+  $('userNext').onclick = () => { U.page++; loadUsers(); };
+
+  // Partite
+  const G = { days: 0, page: 0, loaded: false, selected: new Set() };
+  const updateSel = () => {
+    $('deleteSelected').disabled = !G.selected.size;
+    $('deleteSelected').textContent = G.selected.size ? `Elimina selezionate (${G.selected.size})` : 'Elimina selezionate';
+  };
+  async function loadGames() {
+    G.loaded = true; G.selected.clear(); updateSel(); $('selectAll').checked = false; msg($('gameMsg'), '');
+    let r;
+    try { r = await api(`/api/admin?view=games&inactive=${G.days}&page=${G.page}`); } catch (e) { msg($('gameMsg'), e.message); return; }
+    const body = $('gameRows'); body.innerHTML = '';
+    if (!r.games.length) { const tr = document.createElement('tr'); tr.append(td('Nessuna partita.', 'empty')); tr.firstChild.colSpan = 7; body.append(tr); }
+    for (const g of r.games) {
+      const tr = document.createElement('tr');
+      const c0 = document.createElement('td'); const cb = document.createElement('input'); cb.type = 'checkbox'; cb.dataset.id = g.id;
+      cb.onchange = () => { cb.checked ? G.selected.add(g.id) : G.selected.delete(g.id); updateSel(); };
+      c0.append(cb);
+      const c1 = document.createElement('td'); const a = document.createElement('a'); a.href = `/?g=${g.id}`; a.target = '_blank'; a.textContent = g.id; c1.append(a);
+      tr.append(c0, c1, td(`${g.white} – ${g.black}${g.model ? ` (${g.model})` : ''}`), td(g.owner || 'ospite'), td(String(g.moves)), td(g.status), td(fmtDate(g.updated)));
+      body.append(tr);
+    }
+    $('gameCount').textContent = `${r.total} ${r.total === 1 ? 'partita' : 'partite'}`;
+    $('gamePage').textContent = `pagina ${G.page + 1} di ${Math.max(1, Math.ceil(r.total / r.pageSize))}`;
+    $('gamePrev').disabled = G.page === 0;
+    $('gameNext').disabled = (G.page + 1) * r.pageSize >= r.total;
+  }
+  $('gameFilter').onchange = () => { G.days = +$('gameFilter').value; G.page = 0; loadGames(); };
+  $('gamePrev').onclick = () => { G.page--; loadGames(); };
+  $('gameNext').onclick = () => { G.page++; loadGames(); };
+  $('selectAll').onchange = () => {
+    document.querySelectorAll('#gameRows input[type=checkbox]').forEach((cb) => { cb.checked = $('selectAll').checked; cb.checked ? G.selected.add(cb.dataset.id) : G.selected.delete(cb.dataset.id); });
+    updateSel();
+  };
+  $('deleteSelected').onclick = async () => {
+    const label = $('deleteSelected').textContent;
+    if (!confirmInline($('deleteSelected'), `Sicuro? Clicca di nuovo`, label)) return;
+    try { const r = await api('/api/admin', { method: 'POST', body: JSON.stringify({ action: 'delete_games', ids: [...G.selected] }) }); toast(r.deleted === 1 ? "1 partita eliminata" : `${r.deleted} partite eliminate`); loadGames(); }
+    catch (e) { msg($('gameMsg'), e.message); }
+  };
+  $('purgeBtn').onclick = async () => {
+    const days = parseInt($('purgeDays').value, 10);
+    if (!(days >= 1)) { msg($('gameMsg'), 'Indica almeno 1 giorno.'); return; }
+    if (!$('purgeBtn').dataset.armed) {
+      // Prima di eliminare mostra quante partite verranno toccate
+      try { const r = await api(`/api/admin?view=games&inactive=${days}&page=0`); confirmInline($('purgeBtn'), `Eliminare ${r.total}? Clicca di nuovo`, 'Elimina'); }
+      catch (e) { msg($('gameMsg'), e.message); }
+      return;
+    }
+    confirmInline($('purgeBtn'), '', 'Elimina');
+    try { const r = await api('/api/admin', { method: 'POST', body: JSON.stringify({ action: 'purge', days }) }); toast(r.deleted === 1 ? "1 partita eliminata" : `${r.deleted} partite eliminate`); loadGames(); }
+    catch (e) { msg($('gameMsg'), e.message); }
+  };
+
+  loadUsers();
+}
+
 // ---------- lobby ----------
 async function initLobby() {
   $('lobby').hidden = false;
   let acc = null;
-  if (auth.session) { try { acc = await api('/api/account'); } catch {} }
+  if (auth.session) acc = await loadMe();
   $('name').value = store.name() || (acc?.email ? acc.email.split('@')[0] : '');
   let picker = null;
   const updateLlmUi = async () => {
@@ -570,7 +680,10 @@ async function poll() {
       if (!S.view || nv.version !== S.view.version) setView(nv);
       else maybeKickLlm(); // ad es. il "sta pensando" è scaduto senza risposta
       if (nv.over) await sleep(15000);
-    } catch { await sleep(3000); }
+    } catch (e) {
+      if (/non trovata/.test(e.message)) { $('status').textContent = e.message; $('actions').hidden = true; return; }
+      await sleep(3000);
+    }
   }
 }
 
@@ -628,5 +741,6 @@ const qs = new URLSearchParams(location.search);
 if (hashType === 'recovery') initAuth(true);
 else if (qs.get('g')) initGame(qs.get('g'));
 else if (qs.get('p') === 'login') initAuth();
+else if (qs.get('p') === 'admin') initAdmin();
 else if (qs.get('p') === 'account' || hashType === 'signup') initAccount();
 else initLobby();

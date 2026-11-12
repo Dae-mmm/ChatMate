@@ -13,6 +13,7 @@ const profileView = (user, p) => ({
   hasKey: !!p?.openrouter_key_enc,
   keyLast4: p?.key_last4 || null,
   defaultModel: p?.default_model || null,
+  role: p?.role || 'user',
 });
 
 function gameSummary(row) {

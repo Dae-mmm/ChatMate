@@ -12,6 +12,7 @@
     <a href="/" class="brand"><span class="logo">♞</span> ChatMate</a>
     <nav class="nav">
       <span id="navUser" class="navUser" hidden></span>
+      <a href="/?p=admin" id="navAdmin" class="navLink" hidden>Admin</a>
       <a href="/?p=account" id="navAccount" class="navLink" hidden>Account</a>
       <button id="navLogout" class="navLink linkBtn" hidden>Esci</button>
       <a href="/?p=login" id="navLogin" class="navLink" hidden>Accedi</a>
@@ -71,6 +72,60 @@
     <section class="card subtle">
       <h2>Le tue partite</h2>
       <ul id="accGames" class="gameList"></ul>
+    </section>
+  </main>
+
+  <!-- Pannello admin -->
+  <main id="admin" class="wide" hidden>
+    <div class="seg adminTabs" id="adminTabs">
+      <button data-v="users" class="on">Account</button>
+      <button data-v="games">Partite</button>
+    </div>
+
+    <section class="card" id="adminUsers">
+      <div class="toolbar">
+        <input id="userSearch" type="search" placeholder="Cerca per email…">
+        <span class="hint" id="userCount"></span>
+      </div>
+      <p class="hint">Livelli: <b>utente</b> gioca normalmente, <b>streamer</b> può attivare la modalità Twitch, <b>admin</b> gestisce account e partite.</p>
+      <div class="tableWrap">
+        <table class="table">
+          <thead><tr><th>Email</th><th>Iscritto</th><th>Ultimo accesso</th><th>Chiave</th><th>Partite</th><th>Livello</th></tr></thead>
+          <tbody id="userRows"></tbody>
+        </table>
+      </div>
+      <div class="pager"><button class="small" id="userPrev">←</button><span id="userPage"></span><button class="small" id="userNext">→</button></div>
+      <p id="userMsg" class="msg"></p>
+    </section>
+
+    <section class="card" id="adminGames" hidden>
+      <div class="toolbar">
+        <label class="inline">Mostra
+          <select id="gameFilter">
+            <option value="0">tutte</option>
+            <option value="7">ferme da più di 7 giorni</option>
+            <option value="30">ferme da più di 30 giorni</option>
+            <option value="90">ferme da più di 90 giorni</option>
+          </select>
+        </label>
+        <span class="hint" id="gameCount"></span>
+        <span class="spacer"></span>
+        <button class="small danger" id="deleteSelected" disabled>Elimina selezionate</button>
+      </div>
+      <div class="tableWrap">
+        <table class="table">
+          <thead><tr><th><input type="checkbox" id="selectAll"></th><th>Partita</th><th>Giocatori</th><th>Proprietario</th><th>Mosse</th><th>Stato</th><th>Ultima attività</th></tr></thead>
+          <tbody id="gameRows"></tbody>
+        </table>
+      </div>
+      <div class="pager"><button class="small" id="gamePrev">←</button><span id="gamePage"></span><button class="small" id="gameNext">→</button></div>
+      <div class="purge">
+        <span>Elimina tutte le partite ferme da più di</span>
+        <input id="purgeDays" type="number" min="1" value="30">
+        <span>giorni</span>
+        <button class="small danger" id="purgeBtn">Elimina</button>
+      </div>
+      <p id="gameMsg" class="msg"></p>
     </section>
   </main>
 

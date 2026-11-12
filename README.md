@@ -4,6 +4,7 @@ Scacchi contro gli LLM e con gli amici: una scacchiera online da giocare via lin
 
 - Regole complete: arrocco, en passant, promozione, scacco matto, stallo, triplice ripetizione, regola delle 50 mosse, materiale insufficiente, abbandono e patta per accordo.
 - Account con email e password: colleghi la tua chiave OpenRouter e l'LLM gioca da solo, oppure giochi in modalità copia e incolla.
+- Livelli degli account (utente, streamer, admin) e pannello admin per cercare gli account, cambiarne il livello ed eliminare le partite vecchie.
 - Nessuna dipendenza: HTML/CSS/JS nel browser, funzioni Node su Vercel, Postgres su Supabase.
 - Il motore delle regole (`lib/chess.js`) è lo stesso nel browser e sul server, ed è verificato con i test perft standard.
 
@@ -21,6 +22,7 @@ lib/llmturn.js                  turno automatico dell'LLM (con tentativi e ripie
 api/config.js                   configurazione pubblica per il login nel browser
 api/account.js                  profilo, chiave OpenRouter, modello predefinito, partite
 api/models.js                   lista curata dei modelli con stima dei costi
+api/admin.js                    pannello admin: account, livelli, partite
 api/games.js                    POST: crea una partita
 api/game.js                     GET stato / POST azioni dei giocatori
 api/llm-turn.js                 fa giocare l'LLM via OpenRouter

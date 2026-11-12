@@ -64,7 +64,9 @@ export default async function handler(req, res) {
         let v = row.version;
         const end = Date.now() + Math.min(wait, 50) * 1000;
         while (Date.now() < end) {
-          row = await waitForChange(id, v, (end - Date.now()) / 1000);
+          const next = await waitForChange(id, v, (end - Date.now()) / 1000);
+          if (!next) return send(res, fmt, 404, { status: 'error', text: `ERROR: game "${id}" not found (it may have been deleted).` });
+          row = next;
           if (mine(row) || row.version === v) break;
           v = row.version;
         }

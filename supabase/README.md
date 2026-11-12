@@ -6,6 +6,7 @@ Le migration in `migrations/` vanno applicate **in ordine** (il nome inizia con 
 | --- | --- |
 | `20261112080000_chess_games.sql` | Tabella `games`, tabella `app_config` e funzioni `chess_get/create/update` protette dal segreto del server |
 | `20261112100000_accounts_and_llm.sql` | Account: tabella `profiles` (chiave OpenRouter cifrata, modello predefinito), partite collegate al proprietario, stato del turno dell'LLM |
+| `20261112120000_roles_and_admin.sql` | Livelli degli account (`user`, `streamer`, `admin`) e funzioni del pannello admin (ricerca account, cambio livello, elenco ed eliminazione partite) |
 
 Ogni nuova modifica al database va aggiunta qui come nuovo file, mai modificando quelli esistenti.
 
@@ -21,7 +22,14 @@ Ogni nuova modifica al database va aggiunta qui come nuovo file, mai modificando
    values ('server_secret_sha256', encode(sha256(convert_to('<IL_TUO_SEGRETO>', 'UTF8')), 'hex'));
    ```
 4. In **Authentication → URL Configuration** imposta *Site URL* sull'indirizzo del sito (es. `https://chatmate-chess.vercel.app`) e aggiungilo anche ai *Redirect URLs*: serve per i link di conferma email e di recupero password.
-5. Su Vercel aggiorna `SUPABASE_URL` e `SUPABASE_ANON_KEY` con i valori del nuovo progetto e ripubblica.
+5. Registrati sul sito e rendi admin il tuo account (dall'SQL Editor):
+   ```sql
+   insert into public.profiles (user_id, role)
+   select id, 'admin' from auth.users where email = '<la-tua-email>'
+   on conflict (user_id) do update set role = 'admin';
+   ```
+   Gli altri livelli poi li gestisci dal pannello admin del sito (`/?p=admin`).
+6. Su Vercel aggiorna `SUPABASE_URL` e `SUPABASE_ANON_KEY` con i valori del nuovo progetto e ripubblica.
 
 `KEY_ENC_SECRET` (la chiave che cifra le chiavi OpenRouter) non dipende da Supabase. Se però la cambi, le chiavi già salvate non si possono più leggere e gli utenti devono reinserirle.
 

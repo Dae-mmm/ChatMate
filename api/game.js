@@ -26,6 +26,7 @@ export default async function handler(req, res) {
       let row = await getGame(String(id || ''));
       if (!row) return res.status(404).json({ error: 'Partita non trovata.' });
       if (since != null && +since === row.version && wait) row = await waitForChange(row.id, row.version, +wait);
+      if (!row) return res.status(404).json({ error: 'Partita non trovata (forse è stata eliminata).' });
       return res.status(200).json(publicView(row, token, user));
     }
     if (req.method !== 'POST') return res.status(405).json({ error: 'Metodo non supportato' });
