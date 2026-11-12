@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChatMate</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♞</text></svg>">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <a href="/" class="brand"><span class="logo">♞</span> ChatMate</a>
+  </header>
+
+  <!-- Lobby -->
+  <main id="lobby" class="lobby" hidden>
+    <section class="card">
+      <h1>Nuova partita</h1>
+      <label class="field">Il tuo nome
+        <input id="name" maxlength="30" placeholder="Es. Daniele" autocomplete="nickname">
+      </label>
+
+      <div class="field">Contro chi giochi
+        <div class="seg" id="opponent">
+          <button data-v="human" class="on">Un amico</button>
+          <button data-v="llm">Un LLM</button>
+        </div>
+      </div>
+
+      <label class="field" id="llmNameField" hidden>Nome dell'LLM
+        <input id="llmName" maxlength="30" placeholder="Es. Claude, GPT, Llama locale">
+      </label>
+
+      <div class="field">Il tuo colore
+        <div class="seg" id="color">
+          <button data-v="w">Bianco</button>
+          <button data-v="random" class="on">Casuale</button>
+          <button data-v="b">Nero</button>
+        </div>
+      </div>
+
+      <button id="create" class="primary">Crea partita</button>
+      <p id="lobbyErr" class="err"></p>
+    </section>
+
+    <section class="card subtle" id="myGames" hidden>
+      <h2>Le tue partite</h2>
+      <ul id="gameList"></ul>
+    </section>
+  </main>
+
+  <!-- Partita -->
+  <main id="game" class="game" hidden>
+    <div class="boardCol">
+      <div class="player top" id="pTop"></div>
+      <div class="boardWrap">
+        <div id="board" class="board" aria-label="Scacchiera"></div>
+        <div id="promo" class="promo" hidden></div>
+      </div>
+      <div class="player bottom" id="pBottom"></div>
+    </div>
+
+    <aside class="side">
+      <div class="card status">
+        <div id="status" class="statusText">Caricamento…</div>
+        <div id="drawBar" class="drawBar" hidden>
+          <span>L'avversario propone la patta</span>
+          <button id="acceptDraw" class="small primary">Accetta</button>
+          <button id="declineDraw" class="small">Rifiuta</button>
+        </div>
+        <p id="gameErr" class="err"></p>
+      </div>
+
+      <div class="card" id="inviteCard" hidden>
+        <h3>Invita un amico</h3>
+        <p class="hint">Mandagli questo link: chi lo apre per primo prende il posto libero.</p>
+        <div class="copyRow"><input id="inviteUrl" readonly><button class="small" data-copy="inviteUrl">Copia</button></div>
+      </div>
+
+      <div class="card" id="llmCard" hidden>
+        <h3>Collega l'LLM</h3>
+        <p class="hint">Se l'LLM può aprire URL (agenti, tool HTTP, script), dagli questo indirizzo: riceverà la mossa dell'avversario, la lista delle mosse possibili e le istruzioni per rispondere.</p>
+        <div class="copyRow"><input id="llmUrl" readonly><button class="small" data-copy="llmUrl">Copia</button></div>
+        <details>
+          <summary>Modalità manuale (copia e incolla)</summary>
+          <p class="hint">Per gli LLM in chat senza accesso al web: copia il prompt, incollalo nella chat, poi incolla qui la risposta.</p>
+          <button id="copyPrompt" class="small">Copia il prompt per l'LLM</button>
+          <div class="copyRow"><input id="llmAnswer" placeholder="Risposta dell'LLM, es. Nf6"><button id="sendAnswer" class="small primary">Gioca</button></div>
+        </details>
+      </div>
+
+      <div class="card">
+        <h3>Mosse</h3>
+        <ol id="moves" class="moves"></ol>
+      </div>
+
+      <div class="card actions" id="actions" hidden>
+        <button id="offerDraw" class="small">Proponi patta</button>
+        <button id="resign" class="small danger">Abbandona</button>
+        <button id="flip" class="small">Gira scacchiera</button>
+      </div>
+    </aside>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
