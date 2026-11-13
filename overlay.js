@@ -258,7 +258,8 @@ function render() {
   }
   const full = Math.ceil(g.moves.length / 2);
   $('votes').textContent = v.phase === 'next' && v.next.mode === 'vote' ? votesText(v.next.totalVotes)
-    : voting ? t('ov.metaVotes', { votes: votesText(v.totalVotes), n: v.round }) : t('ov.moveN', { n: full });
+    // al posto del numero del turno di voto (senza voti ricomincia spesso a vuoto) si mostra il numero della mossa
+    : voting ? `${votesText(v.totalVotes)} · ${t('ov.moveN', { n: Math.floor(g.moves.length / 2) + 1 })}` : t('ov.moveN', { n: full });
 
   // fase, sottotitolo e banner sulla scacchiera
   let phase = PHASE_LABEL[v.phase] ? t(PHASE_LABEL[v.phase]) : '', sub = '';

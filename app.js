@@ -1038,7 +1038,7 @@ async function liveLoop(live) {
         const left = lv.endsAt ? Math.max(0, Math.ceil((lv.endsAt - Date.now() - offset) / 1000)) : null;
         const top = lv.moves.filter((m) => m.votes).slice(0, 8);
         $('liveState').innerHTML =
-          `<b>${livePhase(lv.phase)}</b>${lv.tieBreak ? t('live.tie') : ''}${left != null && lv.phase === 'voting' ? ` · ${left}s` : ''} · ${t('live.round', { n: lv.round })} · ${t('live.votes', { n: lv.totalVotes })}` +
+          `<b>${livePhase(lv.phase)}</b>${lv.tieBreak ? t('live.tie') : ''}${left != null && lv.phase === 'voting' ? ` · ${left}s` : ''} · ${t('live.votes', { n: lv.totalVotes })}` +
           (top.length ? `<div class="tally">${top.map((m) => `<span>${m.san} ${m.votes}</span>`).join('')}</div>` : '');
         const due = lv.phase === 'idle' || lv.phase === 'closing';
         if (due && !ticking) { ticking = true; try { await live({ action: 'tick' }); } catch {} ticking = false; }
