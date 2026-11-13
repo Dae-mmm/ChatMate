@@ -189,3 +189,30 @@ select, textarea { font: inherit; color: var(--text); background: var(--panel2);
 .poolChip button { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 15px; line-height: 1; padding: 0 4px; }
 .poolChip button:hover { color: var(--danger); }
 .steps { grid-template-columns: minmax(0, 1fr); } .steps li { min-width: 0; } .steps .copyRow select { flex: none; }
+
+/* Guida per i nuovi arrivati */
+body.noScroll { overflow: hidden; }
+.tut { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; }
+.tut[hidden] { display: none; }
+.tutBack { position: absolute; inset: 0; background: #0009; backdrop-filter: blur(3px); }
+.tutBox { position: relative; width: min(760px, 100%); max-height: calc(100vh - 32px); overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 20px 60px #000a; display: flex; flex-direction: column; }
+.tutX { position: absolute; top: 8px; right: 12px; font-size: 26px; line-height: 1; color: var(--muted); z-index: 1; background: #0006; border-radius: 8px; padding: 2px 8px; }
+.tutImg { background: var(--bg); border-bottom: 1px solid var(--line); display: grid; place-items: center; padding: 18px; }
+.tutImg img { max-width: 100%; max-height: 42vh; border-radius: 10px; border: 1px solid var(--line); display: block; }
+.tutText { padding: 16px 22px 4px; }
+.tutStep { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.tutText h2 { margin: 4px 0 8px; font-size: 21px; }
+.tutBody { font-size: 15px; line-height: 1.55; color: var(--text); }
+.tutBody p { margin: 0 0 10px; }
+.tutBody ol, .tutBody ul { margin: 0 0 10px; padding-left: 22px; }
+.tutBody li { margin: 3px 0; }
+.tutBody a { color: var(--accent); }
+.tutBody .ok, .tutBody .no { font-weight: 600; }
+.tutBody .ok { color: #7fc98f; } .tutBody .no { color: var(--danger); }
+.tutBody .note { color: var(--muted); font-size: 13px; }
+.tutNav { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 22px 18px; }
+.tutNav .row { display: flex; gap: 8px; }
+.tutDots { display: flex; gap: 6px; }
+.tutDots .dot { width: 9px; height: 9px; border-radius: 50%; border: 0; padding: 0; background: var(--line); cursor: pointer; }
+.tutDots .dot.on { background: var(--accent); }
+.helpLink { font-size: 13px; color: var(--accent); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }

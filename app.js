@@ -1,5 +1,6 @@
 import { sqName, replay } from '/lib/chess.js';
 import { t, lang, setLang, LANGS, applyStatic, fmtDateTime } from '/i18n.js';
+import { openTutorial, maybeShowTutorial } from '/tutorial.js';
 
 const $ = (id) => document.getElementById(id);
 const GLYPH = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' };
@@ -425,6 +426,7 @@ async function initAdmin() {
 
 // ---------- lobby ----------
 async function initLobby() {
+  maybeShowTutorial(); // guida alla prima visita
   $('lobby').hidden = false;
   let acc = null;
   if (auth.session) acc = await loadMe();
@@ -1072,6 +1074,9 @@ applyStatic();
   ls.replaceChildren(...Object.entries(LANGS).map(([c, n]) => new Option(n, c, false, c === lang)));
   ls.onchange = () => { setLang(ls.value); location.reload(); };
 }
+// Guida: dal menu in alto e dai link "Come funziona?" vicino alle singole funzioni
+$('navGuide').onclick = () => openTutorial(0);
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-tut]'); if (b) { e.preventDefault(); openTutorial(b.dataset.tut); } });
 const hashType = consumeAuthHash();
 renderNav();
 $('navLogout').onclick = async () => { await auth.signOut(); location.href = '/'; };

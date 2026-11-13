@@ -17,6 +17,7 @@
       <a href="/?p=account" id="navAccount" class="navLink" hidden data-i18n="nav.account">Account</a>
       <button id="navLogout" class="navLink linkBtn" hidden data-i18n="nav.logout">Log out</button>
       <a href="/?p=login" id="navLogin" class="navLink" hidden data-i18n="nav.login">Log in</a>
+      <button id="navGuide" class="navLink linkBtn" data-i18n="nav.guide">Guide</button>
       <select id="langSel" class="langSel" aria-label="Language"></select>
     </nav>
   </header>
@@ -57,6 +58,7 @@
 
       <h3 data-i18n="acc.keyTitle">OpenRouter key</h3>
       <p class="hint" data-i18n-html="acc.keyHint">With your key the LLM plays on its own: each move is a call to the model you pick, paid from your OpenRouter credit. The key is stored encrypted and never shown again. Create one at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>.</p>
+      <button type="button" class="helpLink" data-tut="openrouter" data-i18n="tut.help">How does it work?</button>
       <div id="keyStatus" class="keyStatus"></div>
       <div class="copyRow">
         <input id="keyInput" type="password" placeholder="sk-or-..." autocomplete="off">
@@ -167,6 +169,7 @@
           <div class="modelPick" id="lobbyModelPick"></div>
         </div>
         <p class="hint" id="llmHint"></p>
+        <button type="button" class="helpLink" data-tut="openrouter" data-i18n="tut.help">How does it work?</button>
       </div>
 
       <div id="twitchOptions" hidden>
@@ -310,7 +313,8 @@
 
       <!-- LLM: modalità copia e incolla (anche come ripiego se la modalità automatica fallisce) -->
       <div class="card" id="llmManual" hidden>
-        <h3 data-i18n="manual.title">The LLM's move</h3>
+        <div class="cardHead"><h3 data-i18n="manual.title">The LLM's move</h3>
+          <button type="button" class="helpLink" data-tut="copy" data-i18n="tut.help">How does it work?</button></div>
         <ol class="steps">
           <li><span data-i18n="manual.step1">Copy the prompt and paste it into your LLM's chat.</span>
             <textarea id="promptText" readonly rows="6"></textarea>
@@ -331,6 +335,7 @@
           <summary data-i18n="api.title">Connect an LLM via API</summary>
           <p class="hint" data-i18n="api.hint">Agents and scripts can play on their own by opening this address: they get the opponent's move, the possible moves and instructions on how to reply.</p>
           <div class="copyRow"><input id="llmUrl" readonly><button class="small" data-copy="llmUrl" data-i18n="common.copy">Copy</button></div>
+          <button type="button" class="helpLink" data-tut="link" data-i18n="tut.whichAi">Which AIs can use it?</button>
         </details>
       </div>
 
