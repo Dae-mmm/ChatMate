@@ -211,6 +211,13 @@ function render() {
   playerEl($('plLlm'), llmSide, llmColor, !g.over && g.turn === llmColor, 'LLM');
 
   const voting = ['voting', 'counting', 'closing', 'idle'].includes(v.phase);
+  // ragionamento dell'ultima mossa dell'LLM, durante il turno della chat (solo se attivato dallo streamer)
+  const th = voting && v.thought;
+  $('thought').hidden = !th;
+  if (th) {
+    $('thoughtHead').innerHTML = t('ov.thought', { name: escapeHtml(th.model), move: escapeHtml(th.move || '') });
+    $('thoughtText').textContent = th.text.replace(/\n{2,}/g, '\n');
+  }
   const top = voting ? v.moves.filter((m) => m.votes > 0).slice(0, 5) : [];
   renderArrows(top, v.totalVotes, pov);
 

@@ -494,7 +494,7 @@ async function initLobby() {
         const r = await api('/api/games', { method: 'POST', body: JSON.stringify({
           opponent, color: segValue('color'), model: picker ? picker.value() : null,
           channel: $('twChannel').value, voteSeconds: $('twVote').value, graceSeconds: $('twGrace').value,
-          autoNext: $('twNext').value, modelMode: cycle.mode(), modelPool: cycle.pool(),
+          autoNext: $('twNext').value, modelMode: cycle.mode(), modelPool: cycle.pool(), showReasoning: $('twReason').checked,
         }) });
         store.set(r.id, { token: r.token, llmToken: r.llmToken, color: r.color, opponent: 'twitch', created: Date.now() });
         location.href = `/?g=${r.id}`;
@@ -994,12 +994,13 @@ function startLivePanel(v) {
   $('liveChannel').textContent = `#${v.twitch.channel}`;
   $('setChannel').value = v.twitch.channel; $('setVote').value = v.twitch.voteSeconds; $('setGrace').value = v.twitch.graceSeconds;
   $('setNext').value = v.twitch.autoNext || 0;
+  $('setReason').checked = !!v.twitch.showReasoning;
   const cycle = initCycle('set', v.twitch.modelMode || 'fixed', v.twitch.modelPool || []);
   const live = (body) => api('/api/live', { method: 'POST', body: JSON.stringify({ key: S.liveKey, ...body }) });
   $('saveLive').onclick = async () => {
     try {
       const r = await live({ action: 'settings', channel: $('setChannel').value, voteSeconds: $('setVote').value, graceSeconds: $('setGrace').value,
-        autoNext: $('setNext').value, modelMode: cycle.mode(), modelPool: cycle.pool() });
+        autoNext: $('setNext').value, modelMode: cycle.mode(), modelPool: cycle.pool(), showReasoning: $('setReason').checked });
       $('liveChannel').textContent = `#${r.channel}`; toast(t('live.saved'));
     } catch (e) { $('gameErr').textContent = e.message; }
   };
@@ -1016,7 +1017,7 @@ function startLivePanel(v) {
       const r = await api('/api/games', { method: 'POST', body: JSON.stringify({
         opponent: 'twitch', color: cur.you, model: cur.llm?.model, channel: $('setChannel').value,
         voteSeconds: $('setVote').value, graceSeconds: $('setGrace').value,
-        autoNext: $('setNext').value, modelMode: cycle.mode(), modelPool: cycle.pool(),
+        autoNext: $('setNext').value, modelMode: cycle.mode(), modelPool: cycle.pool(), showReasoning: $('setReason').checked,
       }) });
       store.set(r.id, { token: r.token, llmToken: r.llmToken, color: r.color, opponent: 'twitch', created: Date.now() });
       location.href = `/?g=${r.id}`;

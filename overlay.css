@@ -53,6 +53,11 @@ body.transparent { background: transparent; }
 .sub b { color: var(--text); }
 
 .top { display: grid; gap: 12px; }
+/* ragionamento dell'LLM (se lo streamer lo attiva) */
+.thought { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent, #E8613C); border-radius: 14px; padding: 12px 20px; }
+.thoughtHead { font-size: 17px; color: var(--muted); margin-bottom: 4px; }
+.thoughtHead b { color: var(--text, #fff); }
+.thoughtText { font-size: 19px; line-height: 1.35; font-style: italic; opacity: .9; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
 .top { gap: 10px; }
 .row { display: grid; grid-template-columns: 26px 150px minmax(0, 1fr) 170px; align-items: center; gap: 18px;
   background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 8px 20px; }

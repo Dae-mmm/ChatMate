@@ -103,7 +103,7 @@ async function createTwitchGame(req, res, body, user) {
   if (modelMode !== 'fixed' && modelPool.length < 2) return res.status(400).json({ error: msg(langOf(req), 'pool_min2'), code: 'pool_min2' });
   const { id, token, llmToken } = await createLiveGame({
     ownerId: user.id, liveKey, channel, model, chatColor: chat,
-    voteSeconds: clamp(body.voteSeconds, LIMITS.vote), graceSeconds: clamp(body.graceSeconds, LIMITS.grace),
+    voteSeconds: clamp(body.voteSeconds, LIMITS.vote), graceSeconds: clamp(body.graceSeconds, LIMITS.grace), showReasoning: body.showReasoning === true,
     autoNext: clamp(body.autoNext, LIMITS.next), modelMode, modelPool,
   });
   const base = baseUrl(req);

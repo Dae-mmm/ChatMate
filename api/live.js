@@ -3,7 +3,7 @@ import { msg, langOf, AppError, sendError } from '../lib/messages.js';
 // GET  /api/live?key=<chiave>                          stato della live (turno, timer, voti)
 // POST /api/live { key, action: "votes", votes: [{ voter, move }] }   voti letti dalla chat
 // POST /api/live { key, action: "tick" }               fa avanzare i turni (apre / chiude il voto)
-// POST /api/live { key, action: "settings", channel?, voteSeconds?, graceSeconds?, autoNext?, modelMode?, modelPool? }
+// POST /api/live { key, action: "settings", channel?, voteSeconds?, graceSeconds?, autoNext?, modelMode?, modelPool?, showReasoning? }
 //      solo il proprietario (login); valgono per la partita in corso e vengono copiate nelle successive
 import { liveLatest, updateGame } from '../lib/store.js';
 import { liveView, tick, addVotes, LIMITS, clamp, cleanChannel, validChannel, cleanPool, MODEL_MODES } from '../lib/live.js';
@@ -44,6 +44,7 @@ export default async function handler(req, res) {
       if (body.graceSeconds != null) patch.grace_seconds = clamp(body.graceSeconds, LIMITS.grace);
       if (body.autoNext != null) patch.auto_next_seconds = clamp(body.autoNext, LIMITS.next) || null;
       if (body.modelPool != null) patch.model_pool = cleanPool(body.modelPool);
+      if (body.showReasoning != null) patch.show_reasoning = body.showReasoning === true;
       if (body.modelMode != null) {
         if (!MODEL_MODES.includes(body.modelMode)) return res.status(400).json({ error: msg(langOf(req), 'model_mode_invalid'), code: 'model_mode_invalid' });
         const pool = patch.model_pool ?? row.model_pool ?? [];
