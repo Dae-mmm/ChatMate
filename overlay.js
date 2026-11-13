@@ -211,12 +211,14 @@ function render() {
   playerEl($('plLlm'), llmSide, llmColor, !g.over && g.turn === llmColor, 'LLM');
 
   const voting = ['voting', 'counting', 'closing', 'idle'].includes(v.phase);
-  // ragionamento dell'ultima mossa dell'LLM, durante il turno della chat (solo se attivato dallo streamer)
-  const th = voting && v.thought;
+  // ragionamento dell'ultima mossa dell'LLM (solo se attivato dallo streamer): resta visibile durante il turno
+  // della chat e mentre l'LLM pensa alla mossa successiva, e scorre da solo per poterlo leggere tutto
+  const th = (voting || v.phase === 'llm') && v.thought;
   $('thought').hidden = !th;
   if (th) {
     $('thoughtHead').innerHTML = t('ov.thought', { name: escapeHtml(th.model), move: escapeHtml(th.move || '') });
-    $('thoughtText').textContent = th.text.replace(/\n{2,}/g, '\n');
+    const text = th.text.replace(/\n{2,}/g, '\n');
+    if (SCROLL.text !== text) { SCROLL.text = text; $('thoughtText').textContent = text; resetScroll(); }
   }
   const top = voting ? v.moves.filter((m) => m.votes > 0).slice(0, 5) : [];
   renderArrows(top, v.totalVotes, pov);
@@ -330,6 +332,22 @@ function renderChatState() {
   el.classList.toggle('off', !S.chatOk);
 }
 
+// Scorrimento del ragionamento come i titoli di coda: il testo entra dal basso, sale a velocità di lettura,
+// esce dall'alto e ricomincia. Riparte da capo solo quando arriva un ragionamento nuovo.
+const SCROLL = { text: null, y: null, last: 0 };
+const SCROLL_SPEED = 18; // pixel al secondo (circa una riga ogni 1,5 s)
+function resetScroll() { SCROLL.y = null; }
+function scrollThought(ts) {
+  const dt = SCROLL.last ? Math.min(100, ts - SCROLL.last) : 0; SCROLL.last = ts;
+  if ($('thought').hidden || !SCROLL.text) return;
+  const el = $('thoughtText'), view = $('thoughtView');
+  // all'inizio la prima riga è già quasi in vista, così non si aspetta a vuoto
+  if (SCROLL.y == null) SCROLL.y = -view.clientHeight * 0.6;
+  SCROLL.y += (SCROLL_SPEED * dt) / 1000;
+  if (SCROLL.y > el.offsetHeight) SCROLL.y = -view.clientHeight; // uscito tutto: rientra dal basso
+  el.style.transform = `translateY(${-SCROLL.y}px)`;
+}
+
 // timer fluido, indipendente dal polling
 function frame() {
   const v = S.live;
@@ -347,6 +365,7 @@ function frame() {
   } else {
     tm.textContent = ''; fill.classList.remove('pulse'); fill.style.width = '0';
   }
+  scrollThought(performance.now());
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
