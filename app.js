@@ -990,9 +990,9 @@ function startLivePanel(v) {
   S.liveKey = v.ownerTokens.liveKey;
   const ol = $('overlayLang');
   ol.replaceChildren(...Object.entries(LANGS).map(([c, n]) => new Option(n, c, false, c === 'en'))); // overlay in inglese di default
-  const url = () => `${location.origin}/overlay.html?key=${S.liveKey}&lang=${ol.value}${$('overlayTransparent').checked ? '&bg=transparent' : ''}`;
+  const url = () => `${location.origin}/overlay.html?key=${S.liveKey}&lang=${ol.value}${$('overlayTransparent').checked ? '&bg=transparent' : ''}${$('overlayChat').checked ? '' : '&chat=0'}`;
   $('overlayUrl').value = url();
-  $('overlayTransparent').onchange = ol.onchange = () => { $('overlayUrl').value = url(); };
+  $('overlayTransparent').onchange = $('overlayChat').onchange = ol.onchange = () => { $('overlayUrl').value = url(); };
   $('liveChannel').textContent = `#${v.twitch.channel}`;
   $('setChannel').value = v.twitch.channel; $('setVote').value = v.twitch.voteSeconds; $('setGrace').value = v.twitch.graceSeconds;
   $('setNext').value = v.twitch.autoNext || 0;

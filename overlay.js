@@ -10,6 +10,7 @@ if (qs.get('bg') === 'transparent') document.body.classList.add('transparent');
 useLang(qs.get('lang') || 'en');
 document.documentElement.lang = qs.get('lang') || 'en';
 $('phase').textContent = t('ov.connecting');
+queueMicrotask(() => renderChatBox());
 
 const COLORS = ['#E8613C', '#1FB386', '#8B7FE8', '#F2A93B', '#4C9BE8'];
 const GLYPH = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' };
@@ -113,16 +114,46 @@ function onChat(rawTags, login, text) {
   const v = S.live;
   if (!v) return;
   const tags = Object.fromEntries((rawTags || '').split(';').map((kv) => kv.split('=')));
+  const vote = countVote(v, tags, login, text);
+  addChatLine(tags['display-name'] || login, tags.color, text, vote);
+}
+
+// Registra il voto (se il messaggio è un voto valido in questo momento) e lo restituisce per la chat a schermo
+function countVote(v, tags, login, text) {
   if (v.phase === 'next') {
-    if (v.next.mode !== 'vote' || !v.next.at || now() > v.next.graceEndsAt) return;
+    if (v.next.mode !== 'vote' || !v.next.at || now() > v.next.graceEndsAt) return null;
     const n = text.trim();
-    if (v.next.options.some((o) => o.n === n)) S.queue.set(tags['user-id'] || login, n);
-    return;
+    if (!v.next.options.some((o) => o.n === n)) return null;
+    S.queue.set(tags['user-id'] || login, n);
+    return `#${n}`;
   }
-  if (v.phase !== 'voting' && v.phase !== 'counting') return;
+  if (v.phase !== 'voting' && v.phase !== 'counting') return null;
   const move = normalizeVote(text, v.moves.map((m) => m.san));
-  if (!move) return;
+  if (!move) return null;
   S.queue.set(tags['user-id'] || login, move); // vale l'ultimo voto di ognuno
+  return move;
+}
+
+// ---------- chat a schermo ----------
+const SHOW_CHAT = qs.get('chat') !== '0';
+const CHAT_MAX = 6;
+const chatLines = [];
+function addChatLine(name, color, text, vote) {
+  if (!SHOW_CHAT) return;
+  chatLines.push({ name, color: /^#[0-9a-f]{6}$/i.test(color || '') ? color : null, text: String(text).slice(0, 160), vote });
+  while (chatLines.length > CHAT_MAX) chatLines.shift();
+  renderChatBox();
+}
+const NAME_COLORS = ['#E8613C', '#1FB386', '#8B7FE8', '#F2A93B', '#4C9BE8', '#E85C9B'];
+const nameColor = (name) => NAME_COLORS[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % NAME_COLORS.length];
+function renderChatBox() {
+  $('chatBox').hidden = !SHOW_CHAT;
+  if (!SHOW_CHAT) return;
+  const list = $('chatList');
+  if (!chatLines.length) { list.innerHTML = `<div class="empty">${escapeHtml(t('ov.chatEmpty'))}</div>`; return; }
+  list.innerHTML = chatLines.map((l) =>
+    `<div class="msg"><span class="who" style="color:${l.color || nameColor(l.name)}">${escapeHtml(l.name)}</span>` +
+    `<span class="txt">${escapeHtml(l.text)}</span>${l.vote ? `<span class="ok">✓ ${escapeHtml(l.vote)}</span>` : ''}</div>`).join('');
 }
 
 async function flushVotes() {
