@@ -102,3 +102,7 @@ Per gli LLM in chat senza accesso al web, la pagina ha una modalità manuale: co
 ## Sviluppo locale
 
 Le funzioni in `api/` usano la firma Node di Vercel (`req.query`, `req.body`, `res.status().json()`), quindi `vercel dev` le esegue così come sono.
+
+## Licenza
+
+MIT: vedi [LICENSE](LICENSE).

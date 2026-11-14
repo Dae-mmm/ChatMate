@@ -97,8 +97,10 @@ details { margin-top: 12px; } summary { cursor: pointer; font-size: 13px; color:
 /* Navigazione e account */
 .nav { display: flex; align-items: center; gap: 14px; font-size: 14px; }
 .navUser { color: var(--muted); max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.navLink { color: var(--text); text-decoration: none; }
+.navLink { color: var(--text); text-decoration: none; white-space: nowrap; }
 .navLink:hover { color: var(--accent); }
+.ghLink { display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 560px) { .ghLink span { display: none; } }
 .linkBtn { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font-size: 13px; text-align: left; }
 .nav .linkBtn { color: var(--text); font-size: 14px; }
 .nav .langSel { width: auto; padding: 4px 6px; font-size: 13px; background: transparent; color: var(--muted); }
