@@ -93,7 +93,24 @@ function connectChat(channel) {
       ws.send(`NICK justinfan${Math.floor(10000 + Math.random() * 80000)}`);
       ws.send(`JOIN #${channel}`);
     };
+    // Controllo di vita: la connessione a volte muore senza chiudersi e i messaggi smettono di arrivare.
+    // Se per 45 s non arriva niente si manda un PING; se dopo 90 s è ancora tutto fermo si riconnette.
+    let lastSeen = Date.now();
+    const watchdog = setInterval(() => {
+      if (ws.readyState !== WebSocket.OPEN) return;
+      const quiet = Date.now() - lastSeen;
+      if (quiet > 90000) {
+        // non si aspetta la chiusura "educata" (su una connessione morta può non arrivare mai): se ne apre subito un'altra
+        clearInterval(watchdog); ws.onclose = null; ws.onmessage = null;
+        try { ws.close(); } catch {}
+        S.chatOk = false; renderChatState();
+        if (S.channel === channel) setTimeout(open, 1000);
+      }
+      else if (quiet > 45000) { try { ws.send('PING :chatmate'); } catch {} }
+    }, 15000);
+    ws.addEventListener('close', () => clearInterval(watchdog));
     ws.onmessage = (e) => {
+      lastSeen = Date.now();
       for (const line of String(e.data).split('\r\n')) {
         if (!line) continue;
         if (line.startsWith('PING')) { ws.send(line.replace('PING', 'PONG')); continue; }
@@ -114,6 +131,8 @@ function onChat(rawTags, login, text) {
   const v = S.live;
   if (!v) return;
   const tags = Object.fromEntries((rawTags || '').split(';').map((kv) => kv.split('=')));
+  // risposta a un messaggio: Twitch mette "@nome " davanti al testo, che non fa parte del voto
+  if (tags['reply-parent-msg-id']) text = text.replace(/^@\S+\s+/, '');
   const vote = countVote(v, tags, login, text);
   addChatLine(tags['display-name'] || login, tags.color, text, vote);
 }
