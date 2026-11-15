@@ -23,23 +23,25 @@
       </div>
 
       <div class="phaseBox">
-        <div class="phaseRow">
-          <div id="phase" class="phase"></div>
+        <div id="phase" class="phase"></div>
+        <div id="sub" class="sub"></div>
+      </div>
+
+      <!-- Timer a cerchio in una colonna, chat di Twitch nell'altra (la chat si nasconde con &chat=0) -->
+      <div class="statusRow">
+        <div id="ring" class="ring">
+          <svg viewBox="0 0 100 100"><circle class="ringBg" cx="50" cy="50" r="44"/><circle id="ringFill" class="ringFill" cx="50" cy="50" r="44" pathLength="100"/></svg>
           <div id="timer" class="timer"></div>
         </div>
-        <div class="bar"><div id="barFill" class="barFill"></div></div>
-        <div id="sub" class="sub"></div>
+        <div id="chatBox" class="chatBox" hidden>
+          <div id="chatList" class="chatList"></div>
+        </div>
       </div>
 
       <div id="thought" class="thought" hidden><div class="thoughtHead" id="thoughtHead"></div><div class="thoughtView" id="thoughtView"><div class="thoughtText" id="thoughtText"></div></div></div>
       <div id="top" class="top"></div>
       <div id="rest" class="rest"></div>
       <div id="hist" class="hist" hidden></div>
-
-      <!-- Ultimi messaggi della chat di Twitch (si nasconde con &chat=0 nell'indirizzo) -->
-      <div id="chatBox" class="chatBox" hidden>
-        <div id="chatList" class="chatList"></div>
-      </div>
 
       <div class="foot">
         <div class="how" id="how"></div>

@@ -367,18 +367,19 @@ function renderNext(v, T) {
 // poi, se non basta, restringe gli altri riquadri un po' alla volta (chat, ragionamento, top 5).
 // Una mossa legale che non si vede sembrerebbe non giocabile, quindi l'elenco ha la precedenza.
 const FIT_LEVELS = [
-  { chat: 214, thought: 156, compact: false, gap: 18 },
-  { chat: 154, thought: 112, compact: false, gap: 18 },
-  { chat: 124, thought: 84, compact: true, gap: 14 },
-  { chat: 94, thought: 56, compact: true, gap: 10 },
-  { chat: 64, thought: 56, compact: true, gap: 8 },
-  { chat: 0, thought: 56, compact: true, gap: 8 },
+  { chat: 190, ring: 190, thought: 156, compact: false, gap: 18 },
+  { chat: 150, ring: 150, thought: 112, compact: false, gap: 18 },
+  { chat: 124, ring: 124, thought: 84, compact: true, gap: 14 },
+  { chat: 96, ring: 96, thought: 56, compact: true, gap: 10 },
+  { chat: 72, ring: 72, thought: 56, compact: true, gap: 8 },
+  { chat: 0, ring: 64, thought: 56, compact: true, gap: 8 },
 ];
 function fitRest(el) {
   const stage = $('stage'), top = $('top');
   const fits = () => el.scrollHeight <= el.clientHeight + 1;
   for (const lv of FIT_LEVELS) {
     stage.style.setProperty('--chatH', `${lv.chat}px`);
+    stage.style.setProperty('--ringD', `${lv.ring}px`);
     stage.style.setProperty('--thoughtH', `${lv.thought}px`);
     stage.style.setProperty('--gap', `${lv.gap}px`);
     $('chatBox').classList.toggle('squeezed', lv.chat === 0);
@@ -419,19 +420,26 @@ function scrollThought(ts) {
 // timer fluido, indipendente dal polling
 function frame() {
   const v = S.live;
-  const tm = $('timer'), fill = $('barFill');
+  const tm = $('timer'), ring = $('ring'), fill = $('ringFill');
   const target = v && (v.phase === 'next' ? v.next.at : ['voting', 'counting', 'closing'].includes(v.phase) ? v.endsAt : null);
   if (target) {
     const left = Math.max(0, target - now());
     const total = v.phase === 'next' ? (v.next.tieBreak ? v.voteSeconds : v.next.seconds) : v.voteSeconds;
     const s = Math.ceil(left / 1000);
-    tm.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-    tm.classList.toggle('low', s <= 5);
+    // sotto il minuto solo i secondi, così il numero nel cerchio resta grande
+    tm.textContent = s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : String(s);
     const counting = left <= 0;
-    fill.classList.toggle('pulse', counting);
-    fill.style.width = counting ? '100%' : `${Math.min(100, (left / (total * 1000)) * 100)}%`;
+    ring.classList.toggle('long', s >= 60);
+    ring.classList.toggle('low', s <= 5 && !counting);
+    ring.classList.toggle('pulse', counting);
+    ring.classList.remove('wait');
+    fill.style.strokeDashoffset = counting ? '0' : String(100 - Math.min(100, (left / (total * 1000)) * 100));
   } else {
-    tm.textContent = ''; fill.classList.remove('pulse'); fill.style.width = '0';
+    // nessun conto alla rovescia (pensa l'LLM, partita finita…): cerchio che gira, senza numero
+    tm.textContent = '';
+    ring.classList.remove('low', 'pulse', 'long');
+    ring.classList.toggle('wait', !!v && v.phase === 'llm');
+    fill.style.strokeDashoffset = v && v.phase === 'llm' ? '0' : '100';
   }
   scrollThought(performance.now());
   requestAnimationFrame(frame);

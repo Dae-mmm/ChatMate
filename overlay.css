@@ -40,16 +40,26 @@ body.transparent { background: transparent; }
 .vs { color: var(--muted); font-size: 20px; }
 .tag { font-size: 16px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
 
-.phaseBox { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 18px 24px; }
-.phaseRow { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.phaseBox { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 14px 24px; }
 .phase { font-size: 34px; font-weight: 700; }
-.timer { font-size: 76px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
-.timer.low { color: #ff6b4a; }
-.bar { height: 14px; border-radius: 7px; background: #ffffff1a; overflow: hidden; margin-top: 16px; }
-.barFill { height: 100%; width: 0; background: var(--accent); border-radius: 7px; }
-.barFill.pulse { width: 100% !important; animation: pulse 1s ease-in-out infinite; }
+.sub { font-size: 22px; color: var(--muted); margin-top: 6px; min-height: 28px; }
+
+/* riga con il timer a cerchio (prima colonna) e la chat (seconda colonna) */
+.statusRow { display: flex; gap: var(--gap, 18px); align-items: stretch; flex: none; }
+.ring { --d: var(--ringD, 190px); position: relative; width: var(--d); height: var(--d); flex: none; align-self: center; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring circle { fill: none; stroke-width: 8; }
+.ringBg { stroke: #ffffff1a; fill: #221d17cc !important; }
+.ringFill { stroke: var(--accent); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; }
+.ring.low .ringFill { stroke: #ff6b4a; }
+.ring.pulse .ringFill { stroke-dashoffset: 0 !important; animation: pulse 1s ease-in-out infinite; }
+.ring.wait .ringFill { stroke-dasharray: 22 78; animation: spin 1.4s linear infinite; transform-box: fill-box; transform-origin: 50% 50%; }
 @keyframes pulse { 50% { opacity: .35; } }
-.sub { font-size: 22px; color: var(--muted); margin-top: 12px; min-height: 28px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.timer { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: calc(var(--d) * .34); font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+.ring.long .timer { font-size: calc(var(--d) * .26); }
+.ring.low .timer { color: #ff6b4a; }
 .sub b { color: var(--text); }
 
 .top { display: grid; gap: 12px; }
@@ -84,7 +94,7 @@ body.transparent { background: transparent; }
 
 .chatBox.squeezed { display: none; }
 .chatBox { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 16px; height: var(--chatH, 214px); overflow: hidden;
-  display: flex; flex-direction: column; justify-content: flex-end; flex: none; }
+  display: flex; flex-direction: column; justify-content: flex-end; flex: 1; min-width: 0; }
 .chatList { display: flex; flex-direction: column; gap: 4px; font-size: 20px; line-height: 1.3; }
 .chatList .msg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: chatIn .25s ease-out; }
 .chatList .who { font-weight: 700; margin-right: 8px; }
