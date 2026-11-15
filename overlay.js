@@ -344,15 +344,32 @@ function renderNext(v, T) {
 }
 
 // Adatta la tabella delle altre mosse allo spazio: prima più colonne, poi testo più piccolo
+// Fa stare TUTTE le mosse possibili nel riquadro: prima prova più colonne e caratteri più piccoli,
+// poi, se non basta, restringe gli altri riquadri un po' alla volta (chat, ragionamento, top 5).
+// Una mossa legale che non si vede sembrerebbe non giocabile, quindi l'elenco ha la precedenza.
+const FIT_LEVELS = [
+  { chat: 214, thought: 156, compact: false, gap: 18 },
+  { chat: 154, thought: 112, compact: false, gap: 18 },
+  { chat: 124, thought: 84, compact: true, gap: 14 },
+  { chat: 94, thought: 56, compact: true, gap: 10 },
+  { chat: 64, thought: 56, compact: true, gap: 8 },
+  { chat: 0, thought: 56, compact: true, gap: 8 },
+];
 function fitRest(el) {
-  const top = $('top');
-  for (const compact of [false, true]) { // ultima risorsa: top 5 più compatta
-    top.classList.toggle('compact', compact);
-    for (const cols of [3, 4, 5]) {
-      for (let size = 21; size >= 16; size--) {
+  const stage = $('stage'), top = $('top');
+  const fits = () => el.scrollHeight <= el.clientHeight + 1;
+  for (const lv of FIT_LEVELS) {
+    stage.style.setProperty('--chatH', `${lv.chat}px`);
+    stage.style.setProperty('--thoughtH', `${lv.thought}px`);
+    stage.style.setProperty('--gap', `${lv.gap}px`);
+    $('chatBox').classList.toggle('squeezed', lv.chat === 0);
+    top.classList.toggle('compact', lv.compact);
+    // prima i caratteri più grandi possibile, aggiungendo colonne; solo dopo si rimpicciolisce
+    for (let size = 21; size >= 14; size--) {
+      for (const cols of [3, 4, 5, 6]) {
         el.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
         el.style.fontSize = `${size}px`;
-        if (el.scrollHeight <= el.clientHeight + 1) return;
+        if (fits()) return;
       }
     }
   }

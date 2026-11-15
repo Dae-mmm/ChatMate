@@ -30,7 +30,7 @@ body.transparent { background: transparent; }
   border: 2px solid var(--accent); border-radius: 18px; padding: 28px 44px; font-size: 44px; font-weight: 700; text-align: center; white-space: nowrap; }
 .banner small { display: block; font-size: 26px; font-weight: 500; color: var(--muted); margin-top: 6px; }
 
-.panel { display: flex; flex-direction: column; gap: 18px; min-width: 0; height: 960px; }
+.panel { display: flex; flex-direction: column; gap: var(--gap, 18px); min-width: 0; height: 960px; }
 .players { display: flex; align-items: center; gap: 18px; font-size: 26px; }
 .pl { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .pl span.n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -57,7 +57,7 @@ body.transparent { background: transparent; }
 .thought { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent, #E8613C); border-radius: 14px; padding: 12px 20px; }
 .thoughtHead { font-size: 17px; color: var(--muted); margin-bottom: 4px; }
 .thoughtHead b { color: var(--text, #fff); }
-.thoughtView { height: 156px; overflow: hidden; position: relative;
+.thoughtView { height: var(--thoughtH, 156px); overflow: hidden; position: relative;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 26px, #000 calc(100% - 26px), transparent 100%);
           mask-image: linear-gradient(to bottom, transparent 0, #000 26px, #000 calc(100% - 26px), transparent 100%); }
 .thoughtText { font-size: 19px; line-height: 1.4; font-style: italic; opacity: .9; white-space: pre-line; will-change: transform; }
@@ -82,7 +82,8 @@ body.transparent { background: transparent; }
 .hist .cur { color: var(--accent); font-weight: 700; }
 .rest span.has { color: var(--text); font-weight: 600; }
 
-.chatBox { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 16px; height: 214px; overflow: hidden;
+.chatBox.squeezed { display: none; }
+.chatBox { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 16px; height: var(--chatH, 214px); overflow: hidden;
   display: flex; flex-direction: column; justify-content: flex-end; flex: none; }
 .chatList { display: flex; flex-direction: column; gap: 4px; font-size: 20px; line-height: 1.3; }
 .chatList .msg { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: chatIn .25s ease-out; }
